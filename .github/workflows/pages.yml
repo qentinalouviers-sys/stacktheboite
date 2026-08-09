@@ -29,9 +29,23 @@ jobs:
         run: |
           rm -rf _site
           mkdir -p _site
-          cp index.html styles.css _site/
+          cp index.html styles.css manifest.webmanifest icon.svg _site/
           cp -r src vendor _site/
           touch _site/.nojekyll
+
+      # GitHub Pages sert tout en max-age=600 : sans empreinte dans les URL, un
+      # navigateur peut resservir les anciens modules ES pendant dix minutes
+      # après une mise en ligne, et on croit que le déploiement a échoué.
+      # On tamponne donc la version sur chaque import interne.
+      - name: Tamponne la version sur les URL
+        run: |
+          V="${GITHUB_SHA::7}"
+          sed -i -E "s|(from '\./[A-Za-z0-9_-]+\.js)'|\1?v=$V'|g" _site/src/*.js
+          sed -i -E "s|(\"\./vendor/three\.module\.min\.js)\"|\1?v=$V\"|" _site/index.html
+          sed -i -E "s|(src=\"src/main\.js)\"|\1?v=$V\"|" _site/index.html
+          sed -i -E "s|(href=\"styles\.css)\"|\1?v=$V\"|" _site/index.html
+          echo "Version tamponnée : $V"
+          grep -o "from '\./[^']*'" _site/src/main.js | head -3
 
       - name: Pousse sur gh-pages
         run: |
