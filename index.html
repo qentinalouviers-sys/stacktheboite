@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#15121b">
+<meta name="description" content="Empilez les boîtes à pizza QENTINA.">
+<title>QENTINA STACK</title>
+<link rel="stylesheet" href="styles.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.min.js"
+  }
+}
+</script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <div id="hud">
+    <div id="score">0</div>
+    <div id="best">MEILLEUR 0</div>
+    <div id="perfect"></div>
+  </div>
+
+  <div id="start" class="overlay">
+    <p class="pulse">TAPEZ POUR EMPILER</p>
+  </div>
+
+  <div id="end" class="overlay hidden">
+    <p id="end-record" class="record hidden">NOUVEAU RECORD</p>
+    <p class="label">BOÎTES EMPILÉES</p>
+    <p id="end-score">0</p>
+    <p id="end-best" class="label">MEILLEUR 0</p>
+    <p class="pulse small">TAPEZ POUR REJOUER</p>
+  </div>
+
+  <div id="debug"></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
