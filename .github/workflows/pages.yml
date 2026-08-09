@@ -1,4 +1,8 @@
-name: Deploy to GitHub Pages
+name: Publie le site sur gh-pages
+
+# On publie en poussant sur la branche gh-pages plutôt qu'en passant par
+# l'API Pages : celle-ci exige des droits que le GITHUB_TOKEN d'un workflow
+# n'a pas sur ce dépôt. Ici, contents: write suffit.
 
 on:
   push:
@@ -6,40 +10,37 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: gh-pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
-      # enablement: true active GitHub Pages sur le dépôt sans passer par
-      # les réglages, au premier run.
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
       # On ne publie que ce qui sert au jeu : ni README, ni workflow.
+      # Le .nojekyll est indispensable : Jekyll exclut vendor/ par défaut,
+      # ce qui supprimerait Three.js du site servi.
       - name: Assemble le site
         run: |
+          rm -rf _site
           mkdir -p _site
           cp index.html styles.css _site/
           cp -r src vendor _site/
           touch _site/.nojekyll
 
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Pousse sur gh-pages
+        run: |
+          cd _site
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Déploie ${GITHUB_SHA::7}"
+          git push -f \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" \
+            gh-pages
