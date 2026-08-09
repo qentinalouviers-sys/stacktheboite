@@ -12,7 +12,46 @@ const el = {
   endBest: document.getElementById('end-best'),
   endRecord: document.getElementById('end-record'),
   debug: document.getElementById('debug'),
+  haptics: document.getElementById('haptics-toggle'),
 };
+
+/**
+ * Bouton vibration. Il est masqué si le navigateur ne sait pas vibrer
+ * (Safari iOS) : un interrupteur qui ne commande rien est pire que pas
+ * d'interrupteur.
+ */
+export function setupHapticsToggle({ supported, enabled, onToggle }) {
+  if (!el.haptics) return;
+  if (!supported) {
+    el.haptics.hidden = true;
+    return;
+  }
+
+  const render = (value) => {
+    el.haptics.classList.toggle('off', !value);
+    el.haptics.setAttribute('aria-pressed', String(value));
+    el.haptics.setAttribute(
+      'aria-label',
+      value ? 'Vibration activée' : 'Vibration coupée'
+    );
+  };
+
+  let current = enabled;
+  render(current);
+
+  el.haptics.addEventListener(
+    'pointerdown',
+    (event) => {
+      // Sans ça, le tap sur le bouton poserait aussi une boîte.
+      event.stopPropagation();
+      event.preventDefault();
+      current = !current;
+      render(current);
+      onToggle(current);
+    },
+    { passive: false }
+  );
+}
 
 export function setScore(n) {
   el.score.textContent = String(n);

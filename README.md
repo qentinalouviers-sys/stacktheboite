@@ -24,15 +24,17 @@ et exposer `window.__qentina` (jeu, renderer, scène) dans la console.
 
 ## État d'avancement
 
-**Étape 1 — v0 jouable : faite.** Mécanique, découpe, chute, score, caméra,
-game over, rejeu. Habillage volontairement nu.
-
 | Étape | Contenu | État |
 |---|---|---|
 | 1 | Mécanique + découpe + chute + score | ✅ |
 | 2 | Squash & stretch, ondes, particules, tremblement, effets perfect | à faire |
-| 3 | Textures carton QENTINA, four, salle, dégradé de fond | à faire |
-| 4 | Audio, haptique, PWA/offline, paliers et partage | à faire |
+| 3 | Boîte à pizza QENTINA, fond dégradé | ✅ — four et salle à faire |
+| 4 | Haptique, manifeste PWA | ✅ — audio, offline et paliers à faire |
+
+Fait : la mécanique complète, la boîte à pizza blanche avec QENTINA imprimé sur
+les tranches, le fond qui passe de la salle chaude au ciel nocturne, la
+vibration, le manifeste PWA. Manquent les effets de pose du §3 (squash, ondes,
+particules), le four et la salle, l'audio, l'offline et les paliers.
 
 ## Arborescence
 
@@ -45,30 +47,53 @@ src/
   game.js           machine à états + règles, zéro code de rendu
   boxes.js          meshes des boîtes, tour visible, pool de fragments
   main.js           scène, caméra, boucle de rendu, entrées
+  textures.js       atlas carton QENTINA généré au canvas
+  scenery.js        fond dégradé et couleur de lumière selon la hauteur
+  haptics.js        vibration, avec no-op silencieux si non supporté
   ui.js             HUD DOM
   storage.js        meilleur score et préférences (localStorage)
+manifest.webmanifest, icon.svg
 ```
 
-`scenery.js`, `textures.js`, `audio.js`, `haptics.js` arriveront aux étapes 3 et 4.
+`audio.js` arrivera avec l'étape 4.
+
+## Le texte QENTINA et le rétrécissement des boîtes
+
+C'est le point technique du projet. Une seule texture est partagée par toutes
+les boîtes : un atlas dont la moitié haute est la tranche imprimée QENTINA et
+la moitié basse le carton uni du couvercle.
+
+L'adaptation à la taille d'une boîte se fait en **retouchant les UV de sa
+géométrie**, jamais en étirant le mesh ni en clonant la texture :
+
+- la bande imprimée couvre toujours `TEXTURE_REF_LENGTH` unités monde, donc les
+  lettres gardent exactement la même taille physique quelle que soit la largeur
+  de la boîte — QENTINA ne s'étire jamais, même après vingt découpes ;
+- le motif reste centré sur la tranche, donc une boîte étroite montre le milieu
+  du mot et pas un blanc entre deux mots ;
+- l'atlas évite les matériaux par face. Avec un matériau par face, une boîte
+  coûtait six appels de dessin et la tour en consommait 210 ; on est à 58.
 
 ## Écarts assumés par rapport au master prompt
 
 Trois points de la spec ne tenaient pas tels quels. Les valeurs sont dans
 `config.js`, remets-les pour constater le problème.
 
-1. **Course de la boîte : `±12` → `±4.5`.** Avec la caméra isométrique
+1. **Course de la boîte : `±12` → `±3.5`.** Avec la caméra isométrique
    `(6,6,6)`, l'axe X se projette à l'écran avec un facteur `1/√3 ≈ 0.577`, et
    une boîte pleine ajoute ~`1.73` unité d'emprise écran. À `±12` la boîte
    passait l'essentiel de son trajet hors cadre. Le frustum est par ailleurs
-   calculé à partir d'une **largeur** minimale (`VIEW_WIDTH_MIN = 9`) et non
+   calculé à partir d'une **largeur** minimale (`VIEW_WIDTH_MIN = 7.8`) et non
    d'une hauteur : en portrait, une hauteur de 10 donnait 4,6 unités de large,
-   trop peu pour une boîte de 3.
+   trop peu pour une boîte de 3. Course plus courte = frustum plus serré =
+   boîtes plus grosses à l'écran, ce qui manquait le plus en portrait.
 
-2. **Plafond de vitesse `22` u/s : le perfect devient une loterie.** La fenêtre
-   perfect fait `0.24` unité ; à 60 fps un frame déplace la boîte de `v/60`,
-   soit `0.37` unité à 22 u/s — plus large que la fenêtre entière. Le perfect
-   cesse d'être atteignable de façon fiable vers 14 u/s (niveau ~30). La valeur
-   par défaut reste `22` mais c'est le premier chiffre à baisser après test.
+2. **Vitesses baissées : `6.0 / 0.28 / 22.0` → `4.2 / 0.16 / 12.0`.** D'abord
+   parce que le flux de boîtes était trop rapide au test. Ensuite parce que le
+   plafond à 22 u/s rendait le perfect inatteignable : la fenêtre fait `0.24`
+   unité alors qu'un frame à 60 fps déplaçait la boîte de `0.37` unité, soit
+   plus large que la fenêtre entière. À 12 u/s le pas d'un frame vaut `0.20`
+   unité et le perfect reste jouable jusqu'au plafond.
 
 3. **Three.js vendorisé au lieu du CDN.** L'exigence « offline après premier
    chargement » et la cible « premier tap < 1,5 s en 4G » supportent mal une
@@ -80,30 +105,47 @@ Le squash `scaleY 0.72` du §3 et l'interdiction de scaler le mesh du §4 se
 concilient : le squash est transitoire (180 ms), les redimensionnements
 permanents régénèrent la géométrie.
 
+## Vibration : la moitié des clients n'en aura pas
+
+`navigator.vibrate` **n'existe pas sur Safari iOS**, et Apple n'expose aucune
+alternative au web. Tout iPhone est donc muet côté haptique, quel que soit le
+code, et ce n'est pas contournable de façon fiable. Conséquences assumées :
+
+- le bouton vibration du HUD est **masqué** quand le navigateur ne sait pas
+  vibrer, plutôt que d'afficher un interrupteur qui ne commande rien ;
+- aucune mécanique ne s'appuie sur l'haptique, le retour visuel doit rester
+  auto-suffisant.
+
+Sur Android/Chrome, la vibration marche : `10 ms` à la pose, un motif plus
+marqué au perfect, un motif long au game over. L'état du bouton est mémorisé.
+
 ## Vérifications automatisées
 
-Non incluses dans le dépôt (jetables), mais l'étape 1 a été validée sous
-Chromium en 390×844 :
+Non incluses dans le dépôt (jetables), mais validées sous Chromium en 390×844,
+360×640 et 844×390 :
 
 - découpe exacte au flottant près, jointure boîte posée / fragment sans trou ;
 - 10 perfects d'affilée : recalage exact, regain de largeur, série comptée ;
-- 200 niveaux : `renderer.info.memory.geometries` se stabilise à 79
-  (25 boîtes × 2 + boîte mobile × 2 + pool de 13 fragments × 2 + sol),
-  ~40 draw calls, aucune fuite ;
+- 200 niveaux : `renderer.info.memory.geometries` se stabilise (25 boîtes et
+  leurs arêtes, boîte mobile, pool de fragments), aucune fuite ;
 - game over : chute complète, écran de fin à 0,7 s, record écrit, rejeu en un tap ;
 - portrait et paysage : boîte dans le cadre sur toute sa course, y compris avec
-  une tour décalée au maximum.
+  une tour décalée au maximum ;
+- 58 appels de dessin en régime établi, 2 textures (l'atlas et la shadow map) ;
+- le bouton vibration ne pose pas de boîte, son état persiste, et les quatre
+  motifs de vibration partent au bon moment.
 
 ## À tester sur téléphone
 
 C'est le feel qui est en jeu, pas l'habillage.
 
-1. La vitesse de départ et la montée en difficulté : trop mou ? trop raide ?
-2. La montée de caméra (lerp exponentiel) : sèche ? molle ?
-3. La course `±4.5` : assez d'amplitude pour que ce soit un choix, ou trop long ?
-4. La fenêtre perfect à `0.12` : atteignable au doigt, ou frustrante ?
-5. Le délai de `0.7 s` avant l'écran de fin : on a le temps de voir la chute ?
+1. La vitesse : `4.2` au départ, `+0.16` par niveau, plafond `12.0`. Encore
+   trop rapide ? trop mou maintenant ?
+2. Le cadrage : les boîtes sont-elles à la bonne taille à l'écran ?
+3. QENTINA sur les tranches : bien lisible, y compris sur les boîtes étroites ?
+4. La vibration à chaque pose (Android uniquement) : bon dosage ?
+5. La fenêtre perfect à `0.12` : atteignable au doigt ?
 6. Aucun scroll, aucun zoom, aucun rebond élastique.
 
 Les effets visuels de pose (squash, ondes, particules, tremblement) ne sont
-volontairement pas là : ils arrivent à l'étape 2, une fois le feel de base validé.
+volontairement pas là : ils arrivent à l'étape 2.

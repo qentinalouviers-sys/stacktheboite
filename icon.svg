@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QENTINA STACK">
+  <rect width="512" height="512" fill="#1c1410"/>
+  <!-- Trois boîtes empilées, vues en isométrie, décalées comme dans le jeu. -->
+  <g>
+    <!-- boîte du bas -->
+    <path d="M256 396 96 328v-40l160 68 160-68v40z" fill="#cfc7b8"/>
+    <path d="M256 356 96 288l160-68 160 68z" fill="#f4f1ea"/>
+    <!-- boîte du milieu, décalée -->
+    <path d="M232 300 72 232v-40l160 68 160-68v40z" fill="#cfc7b8"/>
+    <path d="M232 260 72 192l160-68 160 68z" fill="#f4f1ea"/>
+    <!-- boîte du haut -->
+    <path d="M272 208 112 140v-40l160 68 160-68v40z" fill="#cfc7b8"/>
+    <path d="M272 168 112 100l160-68 160 68z" fill="#f4f1ea"/>
+  </g>
+  <!-- Tranche signature dorée sur la boîte du bas -->
+  <path d="M256 396 96 328v-8l160 68 160-68v8z" fill="#d8a13a"/>
+</svg>

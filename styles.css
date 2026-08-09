@@ -1,6 +1,18 @@
 /* ============================================================
-   QENTINA STACK — HUD et écrans. Le rendu 3D est dans le canvas.
+   QENTINA STACK — HUD et écrans. Le rendu 3D est dans le canvas,
+   qui est transparent : le fond dégradé est ici, piloté par
+   scenery.js via --bg-top / --bg-bottom.
    ============================================================ */
+
+:root {
+  --bg-top: hsl(20 38% 7%);
+  --bg-bottom: hsl(27 52% 24%);
+  --glow: hsl(24 90% 52% / 0.5);
+  --ink: #f6f2ea;
+  --gold: #e8b44a;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Helvetica, Arial, sans-serif;
+}
 
 * {
   margin: 0;
@@ -13,20 +25,26 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #15121b;
 }
 
 body {
   position: fixed;
   inset: 0;
+  /* Deux couches : la lueur du four en bas de cadre, et le dégradé qui
+     descend du ciel nocturne vers la salle. Les trois couleurs sont
+     interpolées avec la hauteur atteinte, par scenery.js. */
+  background:
+    radial-gradient(125% 52% at 50% 106%, var(--glow), transparent 72%),
+    linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));
+  transition: background 600ms linear;
   touch-action: none;
   overscroll-behavior: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  color: #f4f1ea;
+  font-family: var(--font);
+  color: var(--ink);
 }
 
 #scene {
@@ -43,35 +61,35 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  padding: calc(env(safe-area-inset-top, 0px) + 22px)
-    calc(env(safe-area-inset-right, 0px) + 16px)
-    calc(env(safe-area-inset-bottom, 0px) + 16px)
-    calc(env(safe-area-inset-left, 0px) + 16px);
+  padding: calc(env(safe-area-inset-top, 0px) + 5vh) 16px 0;
   text-align: center;
 }
 
 #score {
-  font-size: 68px;
+  /* clamp() plutôt qu'une taille fixe : lisible sur un petit Android comme
+     sur une tablette, sans media query. */
+  font-size: clamp(46px, 15vw, 96px);
   font-weight: 200;
   line-height: 1;
-  letter-spacing: 0.02em;
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.5);
 }
 
 #best {
-  margin-top: 8px;
-  font-size: 11px;
+  margin-top: 10px;
+  font-size: clamp(10px, 2.8vw, 12px);
   font-weight: 600;
-  letter-spacing: 0.22em;
-  opacity: 0.45;
+  letter-spacing: 0.24em;
+  opacity: 0.42;
 }
 
 #perfect {
-  margin-top: 26px;
-  font-size: 15px;
+  margin-top: clamp(16px, 4vh, 32px);
+  font-size: clamp(13px, 3.8vw, 17px);
   font-weight: 700;
-  letter-spacing: 0.24em;
-  color: #e8b44a;
+  letter-spacing: 0.26em;
+  color: var(--gold);
   opacity: 0;
 }
 
@@ -96,6 +114,54 @@ body {
   }
 }
 
+/* --- Bouton vibration --------------------------------------- */
+
+#haptics-toggle {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  right: calc(env(safe-area-inset-right, 0px) + 12px);
+  width: 44px; /* cible tactile minimale confortable */
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#haptics-toggle[hidden] {
+  display: none;
+}
+
+#haptics-toggle svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  opacity: 0.72;
+}
+
+#haptics-toggle .cross {
+  opacity: 0;
+}
+
+#haptics-toggle.off svg {
+  opacity: 0.4;
+}
+
+#haptics-toggle.off .waves {
+  opacity: 0;
+}
+
+#haptics-toggle.off .cross {
+  opacity: 1;
+}
+
 /* --- Écrans ------------------------------------------------- */
 
 .overlay {
@@ -107,7 +173,7 @@ body {
   justify-content: center;
   gap: 10px;
   pointer-events: none;
-  padding: 0 24px;
+  padding: 0 24px calc(env(safe-area-inset-bottom, 0px));
   text-align: center;
 }
 
@@ -115,32 +181,40 @@ body {
   display: none;
 }
 
+#start {
+  justify-content: flex-end;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12vh);
+}
+
 #end {
   background: radial-gradient(
     ellipse at center,
-    rgba(10, 8, 14, 0.72) 0%,
-    rgba(10, 8, 14, 0.9) 100%
+    rgba(12, 8, 6, 0.7) 0%,
+    rgba(12, 8, 6, 0.92) 100%
   );
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 #end-score {
-  font-size: 92px;
+  font-size: clamp(64px, 22vw, 120px);
   font-weight: 200;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .label {
-  font-size: 11px;
+  font-size: clamp(10px, 2.8vw, 12px);
   font-weight: 600;
   letter-spacing: 0.24em;
   opacity: 0.5;
 }
 
 .record {
-  font-size: 13px;
+  font-size: clamp(11px, 3.2vw, 14px);
   font-weight: 700;
   letter-spacing: 0.24em;
-  color: #e8b44a;
+  color: var(--gold);
 }
 
 .record.hidden {
@@ -148,15 +222,15 @@ body {
 }
 
 .pulse {
-  font-size: 15px;
+  font-size: clamp(13px, 3.8vw, 16px);
   font-weight: 600;
   letter-spacing: 0.26em;
   animation: pulse 1.6s ease-in-out infinite;
 }
 
 .pulse.small {
-  margin-top: 26px;
-  font-size: 12px;
+  margin-top: clamp(20px, 5vh, 36px);
+  font-size: clamp(11px, 3.2vw, 13px);
   opacity: 0.75;
 }
 
@@ -167,6 +241,16 @@ body {
   }
   50% {
     opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+    opacity: 0.85;
+  }
+  body {
+    transition: none;
   }
 }
 

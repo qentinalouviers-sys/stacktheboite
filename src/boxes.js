@@ -5,11 +5,12 @@
 
 import * as THREE from 'three';
 import * as C from './config.js';
+import { getAtlas } from './textures.js';
 
 const _color = new THREE.Color();
 
-/** Teinte du carton selon la hauteur (§4 : dérive lente, jamais criarde). */
-export function boxColor(level) {
+/** Teinte du carton selon la hauteur : elle multiplie la texture crème. */
+export function boxTint(level) {
   const t = Math.min(level / C.COLOR_RAMP_LEVELS, 1);
   const h = THREE.MathUtils.lerp(C.COLOR_START.h, C.COLOR_END.h, t) / 360;
   const s = THREE.MathUtils.lerp(C.COLOR_START.s, C.COLOR_END.s, t);
@@ -18,12 +19,66 @@ export function boxColor(level) {
 }
 
 /**
- * Une boîte = un Mesh + ses arêtes en enfant. Sans les arêtes, une pile
- * de boîtes claires devient illisible : c'est le principal risque visuel.
+ * Envoie les UV d'une face dans une sous-zone de l'atlas.
+ * Ordre des faces d'une BoxGeometry : +X, -X, +Y, -Y, +Z, -Z, 4 sommets chacune.
+ */
+function mapFaceUV(uv, face, u0, u1, v0, v1) {
+  const start = face * 4;
+  for (let i = start; i < start + 4; i++) {
+    uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), v0 + uv.getY(i) * (v1 - v0));
+  }
+}
+
+/**
+ * Une tranche est cadrée sur la bande QENTINA, et son étendue horizontale
+ * est proportionnelle à la largeur réelle de la face. C'est le cœur de la
+ * gestion du rétrécissement : la bande couvre toujours TEXTURE_REF_LENGTH
+ * unités monde, donc les lettres gardent exactement la même taille physique
+ * et ne s'étirent JAMAIS, même après vingt découpes. Le motif reste par
+ * ailleurs centré sur la tranche, ce qui évite qu'une boîte étroite tombe
+ * systématiquement sur un blanc entre deux mots.
+ */
+function mapSideUV(uv, face, width) {
+  const span = width / C.TEXTURE_REF_LENGTH;
+  const u0 = (1 - span) / 2; // valeurs hors [0,1] : RepeatWrapping s'en charge
+  mapFaceUV(uv, face, u0, u0 + span, C.SIDE_V0, C.SIDE_V1);
+}
+
+function applyUVs(geometry, sizeX, sizeZ) {
+  const uv = geometry.attributes.uv;
+
+  mapSideUV(uv, 0, sizeZ); // +X : sa largeur est sizeZ
+  mapSideUV(uv, 1, sizeZ); // -X
+  mapSideUV(uv, 4, sizeX); // +Z : sa largeur est sizeX
+  mapSideUV(uv, 5, sizeX); // -Z
+
+  // Dessus et dessous : carton uni. On reste dans la zone couvercle sans
+  // répétition — le grain s'étire avec la boîte, invisible à cette opacité.
+  mapFaceUV(uv, 2, C.CAP_U0, C.CAP_U1, C.CAP_V0, C.CAP_V1);
+  mapFaceUV(uv, 3, C.CAP_U0, C.CAP_U1, C.CAP_V0, C.CAP_V1);
+
+  uv.needsUpdate = true;
+}
+
+function makeGeometry(sizeX, sizeZ) {
+  const geometry = new THREE.BoxGeometry(sizeX, C.BOX_HEIGHT, sizeZ);
+  applyUVs(geometry, sizeX, sizeZ);
+  return geometry;
+}
+
+/**
+ * Une boîte = un Mesh (matériaux par face) + ses arêtes en enfant. Sans les
+ * arêtes, une pile de boîtes blanches devient une bouillie illisible : c'est
+ * le principal risque visuel du projet.
  */
 export function createBoxMesh(sizeX, sizeZ, level) {
-  const geometry = new THREE.BoxGeometry(sizeX, C.BOX_HEIGHT, sizeZ);
-  const material = new THREE.MeshLambertMaterial({ color: boxColor(level) });
+  const geometry = makeGeometry(sizeX, sizeZ);
+  // Un seul matériau, un seul appel de dessin par boîte : toutes les faces
+  // tapent dans le même atlas, la distinction se fait par les UV.
+  const material = new THREE.MeshLambertMaterial({
+    map: getAtlas(),
+    color: boxTint(level),
+  });
   const mesh = new THREE.Mesh(geometry, material);
 
   const signature = level > 0 && level % C.SIGNATURE_EVERY === 0;
@@ -40,6 +95,20 @@ export function createBoxMesh(sizeX, sizeZ, level) {
   return mesh;
 }
 
+/** Recolore une boîte existante sans toucher à sa géométrie. */
+function retint(mesh, level, signature) {
+  mesh.material.color.setHex(boxTint(level));
+  const edges = mesh.getObjectByName('edges');
+  if (edges) {
+    edges.material.color.setHex(
+      signature ? C.SIGNATURE_EDGE_COLOR : C.EDGE_COLOR
+    );
+    edges.material.opacity = signature
+      ? C.SIGNATURE_EDGE_OPACITY
+      : C.EDGE_OPACITY;
+  }
+}
+
 function disposeMesh(mesh) {
   const edges = mesh.getObjectByName('edges');
   if (edges) {
@@ -47,14 +116,15 @@ function disposeMesh(mesh) {
     edges.material.dispose();
   }
   mesh.geometry.dispose();
+  // L'atlas est partagé par toutes les boîtes : on ne dispose que le matériau.
   mesh.material.dispose();
   mesh.removeFromParent();
 }
 
-/** Remplace la géométrie d'un mesh existant (et de ses arêtes) sans réallouer le Mesh. */
+/** Remplace la géométrie d'un mesh existant sans réallouer le Mesh. */
 function reshape(mesh, sizeX, sizeZ) {
   mesh.geometry.dispose();
-  mesh.geometry = new THREE.BoxGeometry(sizeX, C.BOX_HEIGHT, sizeZ);
+  mesh.geometry = makeGeometry(sizeX, sizeZ);
   const edges = mesh.getObjectByName('edges');
   if (edges) {
     edges.geometry.dispose();
@@ -106,7 +176,7 @@ export class MovingBox {
 
   spawn(box, level) {
     reshape(this.mesh, box.sizeX, box.sizeZ);
-    this.mesh.material.color.setHex(boxColor(level));
+    retint(this.mesh, level, false);
     this.mesh.visible = true;
     this.sync(box);
   }
@@ -138,7 +208,7 @@ export class Fragments {
       this.scene.add(item.mesh);
     }
     reshape(item.mesh, spec.sizeX, spec.sizeZ);
-    item.mesh.material.color.setHex(boxColor(level));
+    retint(item.mesh, level, false);
     item.mesh.visible = true;
     item.mesh.position.set(spec.x, spec.y + C.BOX_HEIGHT / 2, spec.z);
     item.mesh.rotation.set(0, 0, 0);

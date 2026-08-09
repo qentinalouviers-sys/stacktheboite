@@ -6,6 +6,9 @@ import * as THREE from 'three';
 import * as C from './config.js';
 import { Game, State } from './game.js';
 import { Stack, MovingBox, Fragments } from './boxes.js';
+import { getAtlas, setAnisotropy } from './textures.js';
+import * as Scenery from './scenery.js';
+import * as Haptics from './haptics.js';
 import * as UI from './ui.js';
 import * as Storage from './storage.js';
 
@@ -14,19 +17,33 @@ const DEBUG = new URLSearchParams(location.search).has('debug');
 /* --- Renderer & scène ------------------------------------- */
 
 const canvas = document.getElementById('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+// alpha: true — le fond est un dégradé CSS sous le canvas, ça évite un plan
+// de fond dans la scène et ça couvre les safe areas sans effort.
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, C.MAX_PIXEL_RATIO));
+renderer.setClearAlpha(0);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(C.BACKGROUND_COLOR);
 
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, C.CAMERA_NEAR, C.CAMERA_FAR);
 let frustumHeight = C.VIEW_HEIGHT_MIN;
 let viewScale = 1; // 1 = jeu, monte jusqu'à GAMEOVER_ZOOM_OUT à la mort
 
-scene.add(new THREE.AmbientLight(C.AMBIENT_COLOR, C.AMBIENT_INTENSITY));
+// Facteur de projection de l'axe Y sur la verticale de l'écran, pour l'angle
+// de caméra choisi. Sert à placer le sommet de la tour à une fraction d'écran
+// précise ; recalculé ici pour rester juste si on change l'angle.
+const cameraDir = new THREE.Vector3(
+  C.CAMERA_OFFSET_X,
+  C.CAMERA_OFFSET_Y,
+  C.CAMERA_OFFSET_Z
+).normalize();
+const Y_SCREEN_FACTOR = Math.sqrt(1 - cameraDir.y * cameraDir.y);
+
+const hemi = new THREE.HemisphereLight(0xffffff, C.HEMI_GROUND_COLOR, C.HEMI_INTENSITY);
+Scenery.skyColor(0, hemi.color);
+scene.add(hemi);
 
 const keyLight = new THREE.DirectionalLight(C.KEY_LIGHT_COLOR, C.KEY_LIGHT_INTENSITY);
 keyLight.castShadow = true;
@@ -40,14 +57,10 @@ keyLight.shadow.camera.far = 40;
 scene.add(keyLight);
 scene.add(keyLight.target);
 
-// Sol provisoire : remplacé par le carrelage de la salle (§4).
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(80, 80),
-  new THREE.MeshLambertMaterial({ color: 0x1d1822 })
-);
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = C.GROUND_RECEIVES_SHADOW;
-scene.add(ground);
+// Pas de plan de sol pour l'instant : un plan assez grand pour être crédible
+// masque tout le dégradé de fond, et il ne recevait de toute façon plus
+// d'ombre. Le carrelage de la salle et le four arrivent au §4 ; d'ici là,
+// c'est le dégradé CSS qui fait tout le fond.
 
 /* --- Objets de jeu ---------------------------------------- */
 
@@ -55,8 +68,21 @@ const stack = new Stack(scene);
 const movingBox = new MovingBox(scene);
 const fragments = new Fragments(scene);
 
+getAtlas();
+setAnisotropy(renderer.capabilities.getMaxAnisotropy());
+
 Storage.load();
 UI.setBest(Storage.get('best'));
+
+Haptics.setEnabled(Storage.get('haptics'));
+UI.setupHapticsToggle({
+  supported: Haptics.isSupported(),
+  enabled: Haptics.isEnabled(),
+  onToggle(value) {
+    Haptics.setEnabled(value);
+    Storage.set('haptics', value);
+  },
+});
 
 let camY = 0;
 let snapCamera = true;
@@ -70,6 +96,8 @@ const game = new Game({
     camera.zoom = 1;
     camera.updateProjectionMatrix();
     snapCamera = true;
+    Scenery.reset();
+    Scenery.skyColor(0, hemi.color);
     UI.setScore(0);
     UI.hideEnd();
     UI.showStart();
@@ -87,13 +115,23 @@ const game = new Game({
     stack.add(placed, level);
     movingBox.hide();
     if (fragment) fragments.spawn(fragment, level);
-    if (perfect) UI.showPerfect(streak);
+
+    if (perfect) {
+      UI.showPerfect(streak);
+      Haptics.perfect(streak);
+    } else {
+      Haptics.place();
+    }
+
     UI.setScore(level);
+    Scenery.updateBackground(level);
+    Scenery.skyColor(level, hemi.color);
   },
 
   onGameOver(lastBox, score) {
     movingBox.hide();
     fragments.spawn(lastBox, score + 1);
+    Haptics.gameOver();
   },
 
   onEndScreen(score) {
@@ -135,6 +173,8 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', resize);
+// Sur mobile, la barre d'URL qui se rétracte ne déclenche pas toujours resize.
+window.visualViewport?.addEventListener('resize', resize);
 resize();
 
 /* --- Pause propre au retour d'onglet ----------------------- */
@@ -166,7 +206,12 @@ function frame(now) {
 }
 
 function updateCamera(dt) {
-  const targetY = game.towerTopY + frustumHeight * C.CAMERA_LOOK_AHEAD_RATIO;
+  // On vise un point tel que le sommet de la tour tombe à la fraction d'écran
+  // voulue : au-dessus, la place du score et de la boîte qui glisse ; en
+  // dessous, la tour qui plonge.
+  const screenOffset =
+    (1 - 2 * C.TOWER_TOP_SCREEN_FRACTION) * frustumHeight * viewScale;
+  const targetY = game.towerTopY - screenOffset / (2 * Y_SCREEN_FACTOR);
 
   if (snapCamera) {
     camY = targetY;
@@ -213,4 +258,5 @@ if (DEBUG) {
   window.__qentina = { game, renderer, scene, camera, stack, fragments };
 }
 
+Scenery.reset();
 requestAnimationFrame(frame);
