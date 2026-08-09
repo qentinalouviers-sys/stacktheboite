@@ -1,0 +1,45 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [claude/new-session-k04edj]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # enablement: true active GitHub Pages sur le dépôt sans passer par
+      # les réglages, au premier run.
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      # On ne publie que ce qui sert au jeu : ni README, ni workflow.
+      - name: Assemble le site
+        run: |
+          mkdir -p _site
+          cp index.html styles.css _site/
+          cp -r src vendor _site/
+          touch _site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
