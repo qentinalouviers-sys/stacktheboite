@@ -3,7 +3,15 @@
 Jeu de salle pour la pizzeria QENTINA (Louviers). Empilage de boîtes à pizza,
 jouable au premier tap depuis un QR code sur la table.
 
-## Lancer
+## En ligne
+
+**https://qentinalouviers-sys.github.io/stacktheboite/**
+
+Publié automatiquement : chaque push sur `claude/new-session-k04edj` déclenche
+le workflow `.github/workflows/pages.yml`, qui assemble le site et force-push
+la branche `gh-pages`, d'où GitHub Pages sert.
+
+## Lancer en local
 
 ```bash
 python3 -m http.server 8000
