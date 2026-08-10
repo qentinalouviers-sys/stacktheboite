@@ -20,6 +20,19 @@ import * as C from './config.js';
 
 let atlas = null;
 
+/** Fabrique la texture Three.js à partir d'un canvas, réglages communs. */
+function finish(canvas, repeat) {
+  const texture = new THREE.CanvasTexture(canvas);
+  const wrap = repeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+  texture.wrapS = wrap;
+  texture.wrapT = wrap;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  return texture;
+}
+
 /** Grain de carton : bruit monochrome de très faible amplitude. */
 function addGrain(ctx, x, y, width, height, alpha) {
   const image = ctx.getImageData(x, y, width, height);
@@ -109,13 +122,10 @@ export function getAtlas() {
   drawCap(ctx, 0, 0, w, bandHeight);
   ctx.restore();
 
-  atlas = new THREE.CanvasTexture(canvas);
-  atlas.wrapS = THREE.RepeatWrapping; // répétition horizontale des tranches
+  atlas = finish(canvas, true);
+  // Répétition horizontale seulement : en V, les zones tranche et couvercle
+  // ne doivent jamais déborder l'une sur l'autre.
   atlas.wrapT = THREE.ClampToEdgeWrapping;
-  atlas.colorSpace = THREE.SRGBColorSpace;
-  atlas.generateMipmaps = true;
-  atlas.minFilter = THREE.LinearMipmapLinearFilter;
-  atlas.magFilter = THREE.LinearFilter;
   return atlas;
 }
 
@@ -124,4 +134,143 @@ export function setAnisotropy(value) {
   if (!atlas) return;
   atlas.anisotropy = value;
   atlas.needsUpdate = true;
+}
+
+/* ============================================================
+   Décor : mosaïque du four, carrelage de la salle, ombre au sol.
+   ============================================================ */
+
+let mosaicTexture = null;
+let floorTexture = null;
+let blobTexture = null;
+let fireTexture = null;
+
+/**
+ * Faïence du four : carreaux dorés, joints noirs, luminosité variée d'un
+ * carreau à l'autre. C'est cette variation qui empêche la coupole de lire
+ * comme un aplat doré et lui donne son grain de mosaïque.
+ */
+export function getMosaicTexture() {
+  if (mosaicTexture) return mosaicTexture;
+
+  const size = C.MOSAIC_TEXTURE_SIZE;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = C.MOSAIC_GROUT_COLOR;
+  ctx.fillRect(0, 0, size, size);
+
+  const step = C.MOSAIC_TILE;
+  const grout = C.MOSAIC_GROUT;
+  const gold = C.MOSAIC_GOLD;
+  for (let y = 0; y < size; y += step) {
+    for (let x = 0; x < size; x += step) {
+      const jitter = 1 + (Math.random() - 0.5) * 2 * C.MOSAIC_JITTER;
+      const l = Math.max(4, Math.min(96, gold.l * jitter));
+      ctx.fillStyle = `hsl(${gold.h} ${gold.s}% ${l}%)`;
+      ctx.fillRect(x + grout / 2, y + grout / 2, step - grout, step - grout);
+    }
+  }
+
+  mosaicTexture = finish(canvas, true);
+  return mosaicTexture;
+}
+
+/**
+ * Sol de la salle. L'alpha s'éteint vers les bords : sans ça, le plan se
+ * termine par une arête franche en plein écran et on voit qu'on est sur un
+ * décor posé sur rien. Là il se fond dans le dégradé de fond.
+ */
+export function getFloorTexture() {
+  if (floorTexture) return floorTexture;
+
+  const size = C.FLOOR_TEXTURE_SIZE;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = C.FLOOR_GROUT;
+  ctx.fillRect(0, 0, size, size);
+  const step = C.FLOOR_TILE;
+  for (let y = 0; y < size; y += step) {
+    for (let x = 0; x < size; x += step) {
+      const jitter = 1 + (Math.random() - 0.5) * 0.12;
+      ctx.fillStyle = `hsl(258 8% ${Math.max(3, 12 * jitter)}%)`;
+      ctx.fillRect(x + 2, y + 2, step - 4, step - 4);
+    }
+  }
+
+  // Dégradé d'alpha vers les bords.
+  const fade = ctx.createRadialGradient(
+    size / 2, size / 2, size * 0.14,
+    size / 2, size / 2, size * 0.5
+  );
+  fade.addColorStop(0, 'rgba(0,0,0,0)');
+  fade.addColorStop(1, 'rgba(0,0,0,1)');
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, 0, size, size);
+  ctx.globalCompositeOperation = 'source-over';
+
+  floorTexture = finish(canvas, false);
+  return floorTexture;
+}
+
+/** Fausse ombre douce sous la tour : un simple disque dégradé. */
+export function getBlobShadowTexture() {
+  if (blobTexture) return blobTexture;
+
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const g = ctx.createRadialGradient(
+    size / 2, size / 2, 0,
+    size / 2, size / 2, size / 2
+  );
+  g.addColorStop(0, 'rgba(0,0,0,0.85)');
+  g.addColorStop(0.45, 'rgba(0,0,0,0.45)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+
+  blobTexture = finish(canvas, false);
+  return blobTexture;
+}
+
+/** Braises au fond de la bouche : dégradé chaud, plus clair au centre bas. */
+export function getFireTexture() {
+  if (fireTexture) return fireTexture;
+
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#140502';
+  ctx.fillRect(0, 0, size, size);
+
+  const g = ctx.createRadialGradient(
+    size * 0.5, size * 0.78, size * 0.04,
+    size * 0.5, size * 0.78, size * 0.55
+  );
+  g.addColorStop(0, '#fff0c0');
+  g.addColorStop(0.25, '#ffa326');
+  g.addColorStop(0.55, '#d2450a');
+  g.addColorStop(1, 'rgba(20, 5, 2, 1)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+
+  // Quelques bûches sombres en silhouette devant les braises.
+  ctx.fillStyle = 'rgba(28, 12, 6, 0.9)';
+  for (let i = 0; i < 4; i++) {
+    const w = size * (0.3 + Math.random() * 0.3);
+    const x = size * 0.12 + Math.random() * size * 0.5;
+    const y = size * (0.74 + Math.random() * 0.16);
+    ctx.fillRect(x, y, w, size * 0.055);
+  }
+
+  fireTexture = finish(canvas, false);
+  return fireTexture;
 }

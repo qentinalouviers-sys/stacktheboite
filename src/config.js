@@ -150,7 +150,7 @@ export const BG_BOTTOM_END = { h: 224, s: 38, l: 17 };
 
 // Lueur du four, en bas de cadre. Elle s'éteint à mesure qu'on quitte la salle.
 export const BG_GLOW = { h: 24, s: 90, l: 52 };
-export const BG_GLOW_ALPHA_START = 0.5;
+export const BG_GLOW_ALPHA_START = 0.22;
 export const BG_GLOW_ALPHA_END = 0.0;
 
 /* --- Lumières (le four du §4 les remplacera) ---------------- */
@@ -167,6 +167,94 @@ export const HEMI_INTENSITY = 1.75;
 export const KEY_LIGHT_COLOR = 0xfff0d8;
 export const KEY_LIGHT_INTENSITY = 0.55; // juste de quoi sculpter et porter l'ombre
 export const KEY_LIGHT_POSITION = { x: 5, y: 16, z: 4 };
+
+/* --- Décor : le four napolitain (§4) ------------------------ */
+
+// Le four est posé dans le coin arrière-gauche, hors du volume balayé par la
+// boîte en mouvement. Celle-ci décrit une croix (|x| jusqu'à 5 avec z ~ 0, et
+// l'inverse) : la diagonale arrière est donc libre.
+export const OVEN_POSITION = { x: -5.4, y: 0, z: -2.7 };
+export const OVEN_ROTATION_Y = 0.62; // la bouche tournée vers la caméra
+// La caméra est orthographique : rien ne rapetisse avec la distance. Un four
+// à sa taille réelle par rapport à une boîte à pizza occuperait tout l'écran.
+// On triche donc à l'échelle, et le cerveau lit « four au fond de la salle ».
+export const OVEN_SCALE = 0.62;
+
+export const OVEN_BASE_SIZE = 3.2;
+export const OVEN_BASE_HEIGHT = 1.25;
+export const OVEN_DOME_RADIUS = 1.62;
+export const OVEN_DOME_FLATTEN = 0.78; // la coupole napolitaine est surbaissée
+export const OVEN_MOUTH_WIDTH = 1.25;
+export const OVEN_MOUTH_HEIGHT = 1.05;
+export const OVEN_STONE_COLOR = 0x9d968c; // linteau et tablette en pierre
+export const OVEN_FLUE_COLOR = 0x6e6a66; // conduit d'extraction, acier terni
+export const OVEN_FLUE_RADIUS = 0.34;
+export const OVEN_FLUE_HEIGHT = 1.5;
+
+/* --- Braises qui montent du four ----------------------------- */
+
+export const EMBER_COUNT = 9;
+export const EMBER_SIZE = 0.07;
+export const EMBER_RISE_MIN = 0.9;
+export const EMBER_RISE_MAX = 1.8;
+export const EMBER_DRIFT = 0.35;
+export const EMBER_LIFE_MIN = 1.6;
+export const EMBER_LIFE_MAX = 3.2;
+export const EMBER_COLOR = 0xff9a3c;
+export const EMBER_SPREAD = 0.5;
+export const OVEN_DARK_COLOR = 0x2b231c; // encadrement de bouche, intérieur
+
+export const MOSAIC_TEXTURE_SIZE = 512;
+export const MOSAIC_TILE = 32;
+export const MOSAIC_GROUT = 5;
+export const MOSAIC_GROUT_COLOR = '#0b0a09';
+export const MOSAIC_GOLD = { h: 36, s: 42, l: 31 };
+export const MOSAIC_JITTER = 0.14; // variation de luminosité par carreau
+export const MOSAIC_SPECULAR = 0xffd98c;
+export const MOSAIC_SHININESS = 64;
+// Volontairement moins de carreaux que dans la réalité : à l'échelle où la
+// coupole est vue, de vrais carreaux de 2 cm partent en bouillie de mipmap et
+// on perd les joints noirs, qui sont tout le caractère du four.
+export const MOSAIC_REPEAT_DOME = { x: 1.6, y: 0.9 };
+export const MOSAIC_REPEAT_BASE = 1.5;
+
+/* --- Le feu -------------------------------------------------- */
+
+export const FIRE_COLOR = 0xff7a18;
+export const FIRE_LIGHT_INTENSITY = 5.5;
+export const FIRE_LIGHT_DISTANCE = 18;
+export const FIRE_LIGHT_DECAY = 1.6;
+export const FIRE_FLICKER_HZ = 6;
+export const FIRE_FLICKER_MIN = 0.8;
+export const FIRE_FLICKER_MAX = 1.25;
+export const FIRE_FLASH_FACTOR = 1.5; // flash au perfect (§3)
+export const FIRE_FLASH_DURATION = 0.12;
+
+/* --- La salle ------------------------------------------------ */
+
+export const FLOOR_SIZE = 26;
+export const FLOOR_TEXTURE_SIZE = 512;
+export const FLOOR_TILE = 64;
+export const FLOOR_REPEAT = 5;
+export const FLOOR_GROUT = '#191520';
+
+// En avant-plan à droite : le plan de travail passe devant la base de la
+// tour, ce qui donne de la profondeur à une scène sans perspective.
+export const COUNTER_POSITION = { x: 6.0, y: 0, z: 2.5 };
+export const COUNTER_SIZE = { x: 3.8, y: 0.16, z: 1.5 };
+export const COUNTER_HEIGHT = 1.1;
+export const COUNTER_MARBLE_COLOR = 0x8e8880;
+export const COUNTER_BASE_COLOR = 0x2b2730;
+
+export const LOG_RACK_POSITION = { x: -2.6, y: 0, z: -6.2 };
+export const LOG_COLOR = 0x6b5236;
+export const LOG_COUNT = 6;
+
+// Fausse ombre douce sous la tour : une DirectionalLight qui suit la caméra
+// projette un pâté qui se détache. Un disque dégradé posé au sol, lui, reste
+// juste sous la tour.
+export const TOWER_SHADOW_SIZE = 5.4;
+export const TOWER_SHADOW_OPACITY = 0.5;
 
 /* --- Haptique (§6) ------------------------------------------ */
 

@@ -28,13 +28,37 @@ et exposer `window.__qentina` (jeu, renderer, scène) dans la console.
 |---|---|---|
 | 1 | Mécanique + découpe + chute + score | ✅ |
 | 2 | Squash & stretch, ondes, particules, tremblement, effets perfect | à faire |
-| 3 | Boîte à pizza QENTINA, fond dégradé | ✅ — four et salle à faire |
+| 3 | Boîte à pizza QENTINA, four, salle, fond dégradé | ✅ |
 | 4 | Haptique, manifeste PWA | ✅ — audio, offline et paliers à faire |
 
 Fait : la mécanique complète, la boîte à pizza blanche avec QENTINA imprimé sur
-les tranches, le fond qui passe de la salle chaude au ciel nocturne, la
-vibration, le manifeste PWA. Manquent les effets de pose du §3 (squash, ondes,
-particules), le four et la salle, l'audio, l'offline et les paliers.
+les tranches, le four napolitain et sa salle, le fond qui passe de l'intérieur
+chaud au ciel nocturne, la vibration, le manifeste PWA. Manquent les effets de
+pose du §3 (squash, ondes, particules), l'audio, l'offline et les paliers.
+
+## Le décor
+
+Reconstruit d'après une photo du vrai four, en volumes simples : coupole en
+mosaïque dorée à joints noirs, bouche en arche avec les braises au fond, socle
+carrelé de la même faïence, linteau et tablette en pierre, conduit d'extraction,
+rack à bûches, plan de travail, sol carrelé.
+
+Trois décisions valent d'être connues, parce qu'elles s'écartent du réel :
+
+- **Le four est à l'échelle 0,62.** La caméra est orthographique : rien ne
+  rapetisse avec la distance. Un four à sa taille réelle par rapport à une boîte
+  à pizza remplirait l'écran. On triche donc à l'échelle, et le cerveau lit
+  « four au fond de la salle ».
+- **Le plan de travail est en pierre grise, pas en marbre blanc.** Un aplat
+  blanc à côté de boîtes blanches leur vole la lecture, et c'est la tour qu'on
+  doit lire en premier.
+- **Le conduit d'extraction n'est pas là que pour le décor.** Les UV sphériques
+  convergent au pôle de la coupole, ce qui donnait au sommet un aspect de panier
+  tressé. Le conduit couvre ce point — et il existe sur la vraie photo.
+
+Le sol s'éteint en alpha vers ses bords : sans ça il se termine par une arête
+franche en plein écran. Il se fond dans le dégradé de fond, et à mesure que la
+caméra monte on quitte la salle pour la nuit.
 
 ## Arborescence
 
@@ -131,7 +155,7 @@ Non incluses dans le dépôt (jetables), mais validées sous Chromium en 390×84
 - game over : chute complète, écran de fin à 0,7 s, record écrit, rejeu en un tap ;
 - portrait et paysage : boîte dans le cadre sur toute sa course, y compris avec
   une tour décalée au maximum ;
-- 58 appels de dessin en régime établi, 2 textures (l'atlas et la shadow map) ;
+- 60 appels de dessin et 6 textures en régime établi, décor compris ;
 - le bouton vibration ne pose pas de boîte, son état persiste, et les quatre
   motifs de vibration partent au bon moment.
 

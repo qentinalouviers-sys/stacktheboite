@@ -57,10 +57,9 @@ keyLight.shadow.camera.far = 40;
 scene.add(keyLight);
 scene.add(keyLight.target);
 
-// Pas de plan de sol pour l'instant : un plan assez grand pour être crédible
-// masque tout le dégradé de fond, et il ne recevait de toute façon plus
-// d'ombre. Le carrelage de la salle et le four arrivent au §4 ; d'ici là,
-// c'est le dégradé CSS qui fait tout le fond.
+// La salle et le four. Le sol s'éteint en alpha vers ses bords, donc il ne
+// masque pas le dégradé de fond comme le faisait le plan provisoire.
+const scenery = Scenery.buildScenery(scene);
 
 /* --- Objets de jeu ---------------------------------------- */
 
@@ -119,6 +118,7 @@ const game = new Game({
     if (perfect) {
       UI.showPerfect(streak);
       Haptics.perfect(streak);
+      scenery.flash(); // le four accuse le coup (§3)
     } else {
       Haptics.place();
     }
@@ -197,6 +197,7 @@ function frame(now) {
   lastTime = now;
 
   game.update(dt);
+  scenery.update(dt);
   if (game.moving) movingBox.sync(game.moving);
   fragments.update(dt, camY);
   updateCamera(dt);
