@@ -160,41 +160,23 @@ const game = new Game({
 
   onEndScreen(score, bestStreak) {
     const record = Storage.submitScore(score, bestStreak);
-    const best = Storage.get('best');
-    UI.setBest(best);
+    UI.setBest(Storage.get('best'));
 
-    // Paliers et badges se calculent sur le score de LA partie, pas sur le
-    // record : c'est ce qu'on vient de faire qui est récompensé.
-    const tier = Rewards.tierFor(score);
-    const claim = tier ? Rewards.claimReward(tier) : null;
-    const fresh = Storage.unlockBadges(
+    lastScore = score;
+    lastStreak = bestStreak;
+    freshBadges = Storage.unlockBadges(
       Rewards.earnedBadges({
         score,
         streak: bestStreak,
         games: Storage.get('games'),
-        best,
+        best: Storage.get('best'),
       })
     );
 
-    const account = Account.current();
-    UI.showEnd({
-      score,
-      best,
-      record,
-      claim,
-      nextTier: Rewards.nextTier(score),
-      progress: Rewards.progressToNext(score),
-      badges: Storage.get('badges'),
-      freshBadges: fresh,
-      signedIn: Boolean(account),
-      pseudo: account ? account.pseudo : '',
-    });
-
-    lastScore = score;
-    lastStreak = bestStreak;
+    UI.showEnd(buildEndData({ record }));
 
     // Un joueur déjà inscrit n'a rien à faire : son score part tout seul.
-    if (account) Account.saveScore(score, bestStreak);
+    if (Account.isSignedIn()) Account.saveScore(score, bestStreak);
   },
 });
 
@@ -202,11 +184,61 @@ const game = new Game({
 
 let lastScore = 0;
 let lastStreak = 0;
+let freshBadges = [];
+
+/**
+ * Assemble l'état de l'écran de fin. Le cadeau gagné est annoncé à tout le
+ * monde, mais le CODE n'est généré que pour un joueur inscrit : c'est la
+ * récompense qui donne la raison de créer un profil, pas l'inverse.
+ */
+function buildEndData({ record = false, justRevealed = false } = {}) {
+  const account = Account.current();
+  const tier = Rewards.tierFor(lastScore);
+  const claim = tier
+    ? account
+      ? Rewards.claimReward(tier)
+      : Rewards.existingClaim(tier)
+    : null;
+
+  return {
+    score: lastScore,
+    best: Storage.get('best'),
+    record,
+    reward: tier
+      ? {
+          boxes: tier.boxes,
+          label: tier.label,
+          code: claim ? claim.code : null,
+          justRevealed,
+        }
+      : null,
+    nextTier: Rewards.nextTier(lastScore),
+    progress: Rewards.progressToNext(lastScore),
+    badges: Storage.get('badges'),
+    freshBadges,
+    signedIn: Boolean(account),
+    pseudo: account ? account.pseudo : '',
+  };
+}
+
+/** Y a-t-il un cadeau gagné dont le code n'est pas encore débloqué ? */
+function hasLockedReward() {
+  const tier = Rewards.tierFor(lastScore);
+  return Boolean(tier) && !Rewards.existingClaim(tier);
+}
+
+/** Réaffiche l'écran de fin après un changement d'état du compte. */
+function refreshEnd(status) {
+  freshBadges = []; // les badges ne doivent pas rejouer leur animation
+  UI.showEnd(buildEndData({ justRevealed: true }));
+  UI.setEndStatus(status);
+}
 
 UI.showForgetButton(Account.isSignedIn());
 
 UI.setupAccount({
   onOpenSheet() {
+    UI.setSheetReason(hasLockedReward() ? 'reward' : 'score');
     UI.openSheet(Account.isSignedIn() ? 'signin' : 'signup');
   },
 
@@ -222,8 +254,11 @@ UI.setupAccount({
     await Account.saveScore(lastScore, lastStreak);
     UI.showForgetButton(true);
     UI.closeSheet();
-    UI.setEndStatus(`Score enregistré. À bientôt, ${result.account.pseudo}.`);
-    refreshEndAccount();
+    refreshEnd(
+      hasLockedReward()
+        ? `Voilà ton code, ${result.account.pseudo} !`
+        : `Score enregistré. À bientôt, ${result.account.pseudo}.`
+    );
   },
 
   async onSignIn(email) {
@@ -237,8 +272,7 @@ UI.setupAccount({
     await Account.saveScore(lastScore, lastStreak);
     UI.showForgetButton(true);
     UI.closeSheet();
-    UI.setEndStatus(`Content de te revoir, ${result.account.pseudo}.`);
-    refreshEndAccount();
+    refreshEnd(`Content de te revoir, ${result.account.pseudo}.`);
   },
 
   async onForget() {
@@ -246,8 +280,7 @@ UI.setupAccount({
     UI.showForgetButton(false);
     UI.closeSheet();
     UI.setBest(0);
-    UI.setEndStatus('Toutes tes données ont été effacées de cet appareil.');
-    refreshEndAccount();
+    refreshEnd('Toutes tes données ont été effacées de cet appareil.');
   },
 
   async onShare() {
@@ -270,25 +303,6 @@ UI.setupAccount({
   },
 });
 
-/** Réaffiche l'écran de fin avec l'état de compte à jour. */
-function refreshEndAccount() {
-  const account = Account.current();
-  const best = Storage.get('best');
-  const status = document.getElementById('end-status').textContent;
-  UI.showEnd({
-    score: lastScore,
-    best,
-    record: false,
-    claim: Storage.get('claimed').find((c) => lastScore >= c.boxes) || null,
-    nextTier: Rewards.nextTier(lastScore),
-    progress: Rewards.progressToNext(lastScore),
-    badges: Storage.get('badges'),
-    freshBadges: [],
-    signedIn: Boolean(account),
-    pseudo: account ? account.pseudo : '',
-  });
-  UI.setEndStatus(status);
-}
 
 /* --- Entrée ------------------------------------------------ */
 

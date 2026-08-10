@@ -320,20 +320,52 @@ body.is-over #controls {
   text-align: center;
 }
 
-.reward-label {
-  font-size: clamp(11px, 3vw, 13px);
+.reward-won {
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.22em;
+  opacity: 0.55;
+  margin-bottom: 6px;
+}
+
+.reward-label {
+  font-size: clamp(13px, 3.6vw, 16px);
+  font-weight: 700;
+  letter-spacing: 0.1em;
   color: var(--gold);
 }
 
 .reward-code {
-  margin-top: 6px;
+  margin-top: 8px;
   font-family: ui-monospace, Menlo, Consolas, monospace;
   font-size: clamp(20px, 6vw, 26px);
   letter-spacing: 0.12em;
   color: var(--ink);
 }
+
+/* Verrouillé : le code affiché n'est qu'un gabarit, le vrai n'existe pas
+   encore. On le floute pour qu'on voie qu'il y a quelque chose à récupérer. */
+.reward.is-locked .reward-code {
+  filter: blur(6px);
+  opacity: 0.75;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.reward.is-locked .reward-note {
+  color: var(--gold);
+  opacity: 0.9;
+}
+
+.reward.is-revealing .reward-code {
+  animation: code-reveal 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes code-reveal {
+  0% { filter: blur(8px); opacity: 0; transform: scale(0.94); }
+  100% { filter: blur(0); opacity: 1; transform: none; }
+}
+
 
 .reward-note {
   margin-top: 4px;
@@ -419,6 +451,14 @@ body.is-over #controls {
 }
 
 .btn.wide { width: 100%; flex: none; }
+
+/* Le bouton qui déverrouille le cadeau se distingue du reste. Déclaré APRÈS
+   .btn.primary : à spécificité égale, c'est la dernière règle qui gagne. */
+.btn.is-reward {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #1d1206;
+}
 
 .btn[disabled] { opacity: 0.5; cursor: default; }
 

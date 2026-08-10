@@ -28,6 +28,7 @@ const el = {
   reward: document.getElementById('reward'),
   rewardLabel: document.getElementById('reward-label'),
   rewardCode: document.getElementById('reward-code'),
+  rewardNote: document.getElementById('reward-note'),
   badges: document.getElementById('badges'),
   btnSave: document.getElementById('btn-save'),
   btnShare: document.getElementById('btn-share'),
@@ -35,6 +36,7 @@ const el = {
   sheet: document.getElementById('sheet'),
   sheetClose: document.getElementById('sheet-close'),
   sheetTitle: document.getElementById('sheet-title'),
+  sheetSub: document.querySelector('.sheet-sub'),
   tabSignup: document.getElementById('tab-signup'),
   tabSignin: document.getElementById('tab-signin'),
   form: document.getElementById('account-form'),
@@ -57,6 +59,7 @@ const el = {
 };
 
 let sheetMode = 'signup';
+let sheetReason = 'score';
 
 /* --- HUD ----------------------------------------------------- */
 
@@ -173,14 +176,37 @@ function renderTier({ score, nextTier, progress }) {
   el.tierBar.style.width = `${Math.round(progress * 100)}%`;
 }
 
-function renderReward(claim) {
-  if (!claim) {
+/**
+ * Le cadeau gagné est annoncé à TOUT LE MONDE — c'est ce qui donne envie de
+ * s'inscrire. Seul le code est verrouillé : tant qu'il n'y a pas de profil,
+ * il n'est pas seulement masqué à l'écran, il n'existe pas encore, donc rien
+ * à aller chercher dans le DOM.
+ */
+function renderReward(reward) {
+  if (!reward) {
     el.reward.classList.add('hidden');
+    el.reward.classList.remove('is-locked');
     return;
   }
+
   el.reward.classList.remove('hidden');
-  el.rewardLabel.textContent = claim.label.toUpperCase();
-  el.rewardCode.textContent = claim.code;
+  el.rewardLabel.textContent = reward.label.toUpperCase();
+
+  const locked = !reward.code;
+  el.reward.classList.toggle('is-locked', locked);
+
+  if (locked) {
+    el.rewardCode.textContent = `${C.REWARD_PREFIX}-${reward.boxes}-••••`;
+    el.rewardNote.textContent = 'Crée ton profil pour révéler ton code';
+  } else {
+    el.rewardCode.textContent = reward.code;
+    el.rewardNote.textContent = 'À montrer en caisse';
+    if (reward.justRevealed) {
+      el.reward.classList.remove('is-revealing');
+      void el.reward.offsetWidth;
+      el.reward.classList.add('is-revealing');
+    }
+  }
 }
 
 function renderBadges(earned, fresh) {
@@ -209,13 +235,19 @@ export function showEnd(data) {
   el.endStatus.textContent = '';
 
   renderTier(data);
-  renderReward(data.claim);
+  renderReward(data.reward);
   renderBadges(data.badges, data.freshBadges);
 
+  // Un code à récupérer est un bien meilleur appel à l'action qu'une
+  // sauvegarde de score : quand il y en a un, c'est lui qu'on met en avant.
+  const lockedReward = data.reward && !data.reward.code;
   el.btnSave.textContent = data.signedIn
-    ? `Score enregistré · ${data.pseudo}`
-    : 'Sauvegarder mon score';
+    ? `Enregistré · ${data.pseudo}`
+    : lockedReward
+      ? 'Voir mon code'
+      : 'Sauvegarder mon score';
   el.btnSave.disabled = Boolean(data.signedIn);
+  el.btnSave.classList.toggle('is-reward', Boolean(lockedReward));
 
   el.end.classList.remove('hidden');
   document.body.classList.add('is-over');
@@ -238,6 +270,11 @@ export function isBlocking() {
   return !el.sheet.classList.contains('hidden');
 }
 
+/** `reason` change uniquement le discours : 'reward' ou 'score'. */
+export function setSheetReason(reason) {
+  sheetReason = reason;
+}
+
 function setMode(mode) {
   sheetMode = mode;
   const signup = mode === 'signup';
@@ -247,10 +284,20 @@ function setMode(mode) {
   el.tabSignin.setAttribute('aria-selected', String(!signup));
   el.fieldPseudo.classList.toggle('hidden', !signup);
   el.consents.classList.toggle('hidden', !signup);
-  el.btnSubmit.textContent = signup ? 'Créer mon profil' : 'Retrouver mon profil';
+  const reward = sheetReason === 'reward';
+  el.btnSubmit.textContent = signup
+    ? reward
+      ? 'Créer mon profil et voir le code'
+      : 'Créer mon profil'
+    : 'Retrouver mon profil';
   el.sheetTitle.textContent = signup
-    ? 'Sauvegarde ton score'
+    ? reward
+      ? 'Récupère ton cadeau'
+      : 'Sauvegarde ton score'
     : 'Retrouve ton profil';
+  el.sheetSub.textContent = reward
+    ? 'Ton code apparaît juste après. Un pseudo, un e-mail, et c\'est tout.'
+    : "Un pseudo, un e-mail, c'est tout. Jouer restera toujours possible sans profil.";
   clearErrors();
   el.formStatus.textContent = '';
 }

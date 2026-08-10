@@ -289,11 +289,25 @@ story (1080 × 1920) avec le score, le pseudo et la marque, et la passe à
 `navigator.share`. Trois replis en cascade : image native, puis texte et lien
 en natif, puis copie dans le presse-papier, puis téléchargement de l'image.
 
-### Gamification
+### Gamification et déverrouillage du code
 
-Trois paliers de récompense avec code, une barre de progression vers le
-palier suivant, et sept badges à débloquer — dont deux calés sur la brûlure du
-carton, pour que l'effet visuel serve aussi de jalon.
+Trois paliers de récompense, une barre de progression vers le palier suivant,
+et sept badges — dont deux calés sur la brûlure du carton, pour que l'effet
+visuel serve aussi de jalon.
+
+Le cadeau gagné est **annoncé à tout le monde** — « 🎁 TU AS GAGNÉ · UN CAFÉ
+OFFERT » — mais le **code est verrouillé** tant qu'il n'y a pas de profil. Le
+bouton d'action devient alors « Voir mon code », en doré, et la feuille change
+de discours : « Récupère ton cadeau », « Ton code apparaît juste après ».
+
+Ce n'est pas qu'un masquage visuel : tant que le joueur n'est pas inscrit, le
+code **n'est pas généré du tout**. Il n'est ni dans le stockage local, ni dans
+le DOM — il n'y a rien à aller chercher avec l'inspecteur. `claimReward()`
+n'est appelée qu'une fois le profil créé. Un code déjà obtenu reste acquis :
+rejouer au même palier réaffiche le même code.
+
+C'est le bon ordre incitatif : on montre ce qui est gagné, et l'inscription
+devient le moyen de l'encaisser.
 
 ## Audio
 

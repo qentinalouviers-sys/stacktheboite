@@ -49,12 +49,21 @@ function readableCode(length) {
   return out;
 }
 
+/** Code déjà obtenu pour ce palier, ou null. Ne génère rien. */
+export function existingClaim(tier) {
+  if (!tier) return null;
+  return Storage.get('claimed').find((c) => c.boxes === tier.boxes) || null;
+}
+
 /**
  * Point d'accroche unique pour la sécurisation future. Aujourd'hui : génère
  * un code local. Demain : appelle un endpoint qui renvoie un code signé.
+ *
+ * N'est appelée QUE pour un joueur inscrit : le cadeau est annoncé à tout le
+ * monde, mais le code ne se génère qu'une fois le profil créé.
  */
 export function claimReward(tier) {
-  const already = Storage.get('claimed').find((c) => c.boxes === tier.boxes);
+  const already = existingClaim(tier);
   if (already) return already;
 
   const claim = {
