@@ -29,12 +29,12 @@ et exposer `window.__qentina` (jeu, renderer, scène) dans la console.
 | 1 | Mécanique + découpe + chute + score | ✅ |
 | 2 | Squash & stretch, ondes, particules, tremblement, effets perfect | ✅ |
 | 3 | Boîte à pizza QENTINA, four, salle, fond dégradé | ✅ |
-| 4 | Haptique, PWA, profil joueur, paliers, partage | ✅ — audio et offline à faire |
+| 4 | Audio, haptique, PWA, hors ligne, profil, paliers, partage | ✅ |
 
 Fait : la mécanique complète, les effets de pose, la boîte à pizza blanche avec
 QENTINA imprimé sur les tranches, le four napolitain et sa salle, le fond qui
 passe de l'intérieur chaud au ciel nocturne, la vibration, le manifeste PWA.
-Manquent l'audio et le fonctionnement hors ligne.
+Le jeu est complet au regard du master prompt.
 
 ## Le décor
 
@@ -82,6 +82,7 @@ src/
   main.js           scène, caméra, boucle de rendu, entrées
   textures.js       atlas carton QENTINA généré au canvas
   scenery.js        fond dégradé et couleur de lumière selon la hauteur
+  audio.js          synthèse Web Audio, aucun fichier son
   haptics.js        vibration, avec no-op silencieux si non supporté
   account.js        profil joueur, consentements, seul module qui parle réseau
   rewards.js        paliers, codes, badges
@@ -90,9 +91,10 @@ src/
   storage.js        meilleur score et préférences (localStorage)
 manifest.webmanifest, icon.svg
 legal.html          CGU et politique de confidentialité
+sw.js               service worker : le jeu tourne hors ligne
 ```
 
-`audio.js` arrivera avec l'étape 4. `effects.js` est un ajout à l'arborescence
+`effects.js` est un ajout à l'arborescence
 prévue : ces effets ne sont ni des boîtes ni du décor, et `boxes.js` porte déjà
 la découpe, la tour et les fragments.
 
@@ -293,6 +295,51 @@ Trois paliers de récompense avec code, une barre de progression vers le
 palier suivant, et sept badges à débloquer — dont deux calés sur la brûlure du
 carton, pour que l'effet visuel serve aussi de jalon.
 
+## Audio
+
+Tout est synthétisé à la Web Audio API : le jeu ne charge pas un octet pour
+sonner. Quatre sons — un thud à la pose (sinus qui descend + bouffée de bruit
+passe-bas), un froissement à la découpe (bruit passe-haut), une note claire au
+perfect, un glissando descendant au game over.
+
+Deux points valent d'être connus :
+
+- **L'AudioContext est créé au premier tap, jamais au chargement.** iOS refuse
+  tout contexte créé hors d'un geste utilisateur, et un contexte créé trop tôt
+  reste « suspended » à vie.
+- **Le son démarre coupé.** On est dans une salle de restaurant : un jeu qui
+  hurle depuis la table d'à côté est un problème commercial avant d'être un
+  problème technique. Une pastille « Son coupé » signale qu'il existe, et
+  disparaît au premier appui.
+
+La note du perfect monte d'un **demi-ton par perfect consécutif** —
+`261,63 × 2^(n/12)`, plafonnée à deux octaves puis remise à zéro. C'est le
+mécanisme de récompense du jeu d'origine, et c'est pour ça que le plafond
+existe : au-delà, ça devient strident.
+
+## Hors ligne
+
+Le jeu est jouable hors ligne **dès le premier chargement**, y compris la page
+légale une fois visitée.
+
+Deux stratégies dans `sw.js`, et le choix n'est pas cosmétique :
+
+- les **documents** passent par le réseau d'abord. Ils ne portent pas
+  d'empreinte de version dans leur URL : servis depuis le cache en priorité,
+  une mise en ligne ne serait jamais vue ;
+- **tout le reste** passe par le cache d'abord, puisque le déploiement tamponne
+  une empreinte de version dans ces URL — une entrée en cache ne peut donc pas
+  être périmée.
+
+Le point délicat : au tout premier chargement, les modules sont demandés
+**avant** que le worker soit actif, donc ils ne passent jamais par son `fetch`.
+La page lui envoie donc la liste de ce qu'elle vient réellement de charger, et
+il la met en cache. C'est ce qui évite d'attendre une deuxième visite — et ça
+évite au worker d'avoir à connaître les empreintes de version.
+
+Le cache est purgé à chaque changement de version, remplacée au déploiement par
+le sha du commit.
+
 ## Vibration : la moitié des clients n'en aura pas
 
 `navigator.vibrate` **n'existe pas sur Safari iOS**, et Apple n'expose aucune
@@ -332,7 +379,12 @@ Non incluses dans le dépôt (jetables), mais validées sous Chromium en 390×84
   du formulaire vide puis avec un e-mail invalide, création de profil,
   normalisation de l'e-mail, consentements horodatés et versionnés, mode
   connexion qui masque pseudo et consentements, partage, effacement RGPD ;
-- un tap derrière la feuille de compte ouverte ne relance pas de partie.
+- un tap derrière la feuille de compte ouverte ne relance pas de partie ;
+- audio : aucun oscillateur créé tant que le son est coupé, et la note du
+  perfect monte bien d'un demi-ton exact par perfect consécutif
+  (261,63 → 277,19 → 293,67 → 311,13 Hz) ;
+- hors ligne : après UN seul chargement en ligne, réseau coupé, la page se
+  recharge, le jeu tourne et `legal.html` répond.
 
 ## À tester sur téléphone
 
@@ -343,12 +395,16 @@ C'est le feel qui est en jeu, pas l'habillage.
 2. Le cadrage : les boîtes sont-elles à la bonne taille à l'écran ?
 3. QENTINA sur les tranches : bien lisible, y compris sur les boîtes étroites ?
 4. La vibration à chaque pose (Android uniquement) : bon dosage ?
-5. Les effets de pose : l'écrasement se voit-il ? l'onde ? le tremblement à
+5. Le son, une fois activé : le thud, la montée des perfects, le game over.
+6. Les effets de pose : l'écrasement se voit-il ? l'onde ? le tremblement à
    partir de cinq perfects est-il perceptible, ou faut-il monter
    `SHAKE_AMPLITUDE` au-delà de `0.04` ?
-6. La brûlure : assez discrète au début, assez inquiétante à la fin ? Le seuil
+7. La brûlure : assez discrète au début, assez inquiétante à la fin ? Le seuil
    est `BURN_START_LEVEL`, la vitesse `BURN_FULL_LEVEL`.
-7. La fenêtre perfect à `0.12` : atteignable au doigt ?
-8. Aucun scroll, aucun zoom, aucun rebond élastique.
+8. La fenêtre perfect à `0.12` : atteignable au doigt ?
+9. Aucun scroll, aucun zoom, aucun rebond élastique.
+10. Hors ligne : joue une partie, coupe les données, recharge la page.
 
-Il reste l'audio, le fonctionnement hors ligne et les paliers de récompense.
+Reste à faire côté QENTINA, hors code : remplir les mentions entre crochets des
+CGU, les faire relire, trancher le consentement marketing, et brancher un
+endpoint si tu veux recevoir les inscriptions.

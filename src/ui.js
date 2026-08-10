@@ -18,6 +18,8 @@ const el = {
   endStatus: document.getElementById('end-status'),
   debug: document.getElementById('debug'),
   haptics: document.getElementById('haptics-toggle'),
+  sound: document.getElementById('sound-toggle'),
+  soundHint: document.getElementById('sound-hint'),
 
   tier: document.getElementById('tier'),
   tierLabel: document.getElementById('tier-label'),
@@ -87,32 +89,28 @@ export function setDebug(text) {
 }
 
 /**
- * Bouton vibration. Masqué si le navigateur ne sait pas vibrer (Safari iOS) :
- * un interrupteur qui ne commande rien est pire que pas d'interrupteur.
+ * Bascule générique du HUD. Le pointerdown est stoppé net : sans ça, le tap
+ * sur le bouton poserait aussi une boîte, tout l'écran étant zone de tap.
  */
-export function setupHapticsToggle({ supported, enabled, onToggle }) {
-  if (!el.haptics) return;
+function setupToggle(node, { supported, enabled, onToggle, labels }) {
+  if (!node) return () => {};
   if (!supported) {
-    el.haptics.hidden = true;
-    return;
+    node.hidden = true;
+    return () => {};
   }
 
   const render = (value) => {
-    el.haptics.classList.toggle('off', !value);
-    el.haptics.setAttribute('aria-pressed', String(value));
-    el.haptics.setAttribute(
-      'aria-label',
-      value ? 'Vibration activée' : 'Vibration coupée'
-    );
+    node.classList.toggle('off', !value);
+    node.setAttribute('aria-pressed', String(value));
+    node.setAttribute('aria-label', value ? labels.on : labels.off);
   };
 
   let current = enabled;
   render(current);
 
-  el.haptics.addEventListener(
+  node.addEventListener(
     'pointerdown',
     (event) => {
-      // Sans ça, le tap sur le bouton poserait aussi une boîte.
       event.stopPropagation();
       event.preventDefault();
       current = !current;
@@ -121,6 +119,39 @@ export function setupHapticsToggle({ supported, enabled, onToggle }) {
     },
     { passive: false }
   );
+
+  return render;
+}
+
+/**
+ * Bouton vibration. Masqué si le navigateur ne sait pas vibrer (Safari iOS) :
+ * un interrupteur qui ne commande rien est pire que pas d'interrupteur.
+ */
+export function setupHapticsToggle(options) {
+  setupToggle(el.haptics, {
+    ...options,
+    labels: { on: 'Vibration activée', off: 'Vibration coupée' },
+  });
+}
+
+/**
+ * Bouton son. Le son démarre coupé — on est en salle — et la pastille
+ * « Son coupé » signale qu'il existe. Elle disparaît au premier appui.
+ */
+export function setupSoundToggle(options) {
+  setupToggle(el.sound, {
+    ...options,
+    labels: { on: 'Couper le son', off: 'Activer le son' },
+    onToggle(value) {
+      hideSoundHint();
+      options.onToggle(value);
+    },
+  });
+  if (!options.supported || options.enabled) hideSoundHint();
+}
+
+export function hideSoundHint() {
+  if (el.soundHint) el.soundHint.classList.add('hidden');
 }
 
 /* --- Écran de fin -------------------------------------------- */

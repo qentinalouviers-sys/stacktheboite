@@ -391,6 +391,39 @@ export const SPARK_COLOR = 0xffd070;
 export const SHAKE_AMPLITUDE = 0.04;
 export const SHAKE_DURATION = 0.15;
 
+/* --- Audio (§5) : tout est synthétisé, aucun fichier --------- */
+
+export const AUDIO_MASTER_GAIN = 0.5;
+
+// Pose : un thud court. Sinus qui descend vite + bouffée de bruit filtrée.
+export const THUD_FREQ = 140;
+export const THUD_FREQ_END = 62;
+export const THUD_GAIN = 0.55;
+export const THUD_DURATION = 0.04;
+export const THUD_NOISE_GAIN = 0.16;
+export const THUD_NOISE_CUTOFF = 620;
+
+// Découpe : bruit blanc passe-haut, bref et discret.
+export const CUT_GAIN = 0.1;
+export const CUT_DURATION = 0.06;
+export const CUT_CUTOFF = 2400;
+
+// Perfect : note claire, un demi-ton plus haut à chaque perfect consécutif.
+// C'est exactement le mécanisme de récompense du jeu d'origine, et c'est
+// pour ça que le plafond existe : au-delà de deux octaves ça devient strident.
+export const PERFECT_BASE_FREQ = 261.63; // do médian
+export const PERFECT_SEMITONE_CAP = 24;
+export const PERFECT_ATTACK = 0.005;
+export const PERFECT_DECAY = 0.4;
+export const PERFECT_GAIN = 0.3;
+export const PERFECT_HARMONIC_GAIN = 0.12;
+
+// Game over : glissando descendant.
+export const GAMEOVER_FREQ_START = 420;
+export const GAMEOVER_FREQ_END = 70;
+export const GAMEOVER_DURATION = 0.7;
+export const GAMEOVER_GAIN = 0.32;
+
 /* --- Haptique (§6) ------------------------------------------ */
 
 export const HAPTIC_PLACE = 10;

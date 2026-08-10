@@ -30,13 +30,23 @@
     <div id="perfect"></div>
   </div>
 
-  <button id="haptics-toggle" type="button" aria-pressed="true" aria-label="Vibration activée">
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect class="phone" x="8.5" y="4" width="7" height="16" rx="1.6"/>
-      <path class="waves" d="M5 9v6M2.6 10.5v3M19 9v6M21.4 10.5v3"/>
-      <path class="cross" d="M4 4l16 16"/>
-    </svg>
-  </button>
+  <div id="controls">
+    <button id="sound-toggle" type="button" aria-pressed="false" aria-label="Activer le son">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path class="speaker" d="M4 9.5h3.2L12 5.4v13.2L7.2 14.5H4z"/>
+        <path class="waves" d="M15.5 9.4a4 4 0 0 1 0 5.2M18.2 7.2a7.6 7.6 0 0 1 0 9.6"/>
+        <path class="cross" d="M15.5 9.6l5 4.8M20.5 9.6l-5 4.8"/>
+      </svg>
+    </button>
+    <button id="haptics-toggle" type="button" aria-pressed="true" aria-label="Vibration activée">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect class="phone" x="8.5" y="4" width="7" height="16" rx="1.6"/>
+        <path class="waves" d="M5 9v6M2.6 10.5v3M19 9v6M21.4 10.5v3"/>
+        <path class="cross" d="M4 4l16 16"/>
+      </svg>
+    </button>
+    <span id="sound-hint" class="hint">Son coupé</span>
+  </div>
 
   <div id="start" class="overlay">
     <p class="pulse">TAPEZ POUR EMPILER</p>

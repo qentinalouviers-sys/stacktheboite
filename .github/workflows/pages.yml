@@ -29,7 +29,7 @@ jobs:
         run: |
           rm -rf _site
           mkdir -p _site
-          cp index.html legal.html styles.css manifest.webmanifest icon.svg _site/
+          cp index.html legal.html sw.js styles.css manifest.webmanifest icon.svg _site/
           cp -r src vendor _site/
           touch _site/.nojekyll
 
@@ -44,6 +44,8 @@ jobs:
           sed -i -E "s|(\"\./vendor/three\.module\.min\.js)\"|\1?v=$V\"|" _site/index.html
           sed -i -E "s|(src=\"src/main\.js)\"|\1?v=$V\"|" _site/index.html
           sed -i -E "s|(href=\"styles\.css)\"|\1?v=$V\"|" _site/index.html
+          # Le service worker purge son cache quand cette version change.
+          sed -i -E "s|__BUILD__|$V|" _site/sw.js
           echo "Version tamponnée : $V"
           grep -o "from '\./[^']*'" _site/src/main.js | head -3
 

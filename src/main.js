@@ -10,6 +10,7 @@ import { getAtlas, setAnisotropy } from './textures.js';
 import { Effects } from './effects.js';
 import * as Scenery from './scenery.js';
 import * as Haptics from './haptics.js';
+import * as Audio from './audio.js';
 import * as UI from './ui.js';
 import * as Storage from './storage.js';
 import * as Account from './account.js';
@@ -78,6 +79,17 @@ setAnisotropy(renderer.capabilities.getMaxAnisotropy());
 Storage.load();
 UI.setBest(Storage.get('best'));
 
+Audio.setMuted(Storage.get('muted'));
+UI.setupSoundToggle({
+  supported: Audio.isSupported(),
+  enabled: !Storage.get('muted'),
+  onToggle(value) {
+    Audio.unlock(); // on est dans un geste utilisateur : seule fenêtre pour iOS
+    Audio.setMuted(!value);
+    Storage.set('muted', !value);
+  },
+});
+
 Haptics.setEnabled(Storage.get('haptics'));
 UI.setupHapticsToggle({
   supported: Haptics.isSupported(),
@@ -126,9 +138,12 @@ const game = new Game({
     if (perfect) {
       UI.showPerfect(streak);
       Haptics.perfect(streak);
+      Audio.perfect(streak);
       scenery.flash(); // le four accuse le coup (§3)
     } else {
       Haptics.place();
+      Audio.place();
+      if (fragment) Audio.cut();
     }
 
     UI.setScore(level);
@@ -140,6 +155,7 @@ const game = new Game({
     movingBox.hide();
     fragments.spawn(lastBox, score + 1);
     Haptics.gameOver();
+    Audio.gameOver();
   },
 
   onEndScreen(score, bestStreak) {
@@ -281,6 +297,9 @@ function onPointerDown(event) {
   // doit surtout pas relancer une partie derrière elle.
   if (UI.isBlocking()) return;
   event.preventDefault();
+  // Créé ici et nulle part ailleurs : iOS n'autorise l'audio que dans un
+  // geste utilisateur. Sans son, c'est un contexte muet qui ne coûte rien.
+  Audio.unlock();
   game.tap();
 }
 window.addEventListener('pointerdown', onPointerDown, { passive: false });
@@ -319,6 +338,8 @@ let paused = false;
 document.addEventListener('visibilitychange', () => {
   paused = document.hidden;
   lastTime = 0; // le prochain frame repart d'un delta nul
+  if (paused) Audio.suspend();
+  else Audio.resume();
 });
 
 /* --- Boucle ------------------------------------------------ */
@@ -402,6 +423,35 @@ function reportDebug() {
 // Exposé uniquement avec ?debug=1, pour l'inspection et les tests automatisés.
 if (DEBUG) {
   window.__qentina = { game, renderer, scene, camera, stack, fragments, effects };
+}
+
+/* --- Hors ligne --------------------------------------------- */
+
+// Enregistré après le chargement pour ne pas disputer la bande passante au
+// premier rendu : le but est de jouer vite, pas d'être prêt hors ligne vite.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('./sw.js');
+      const worker = registration.active || (await navigator.serviceWorker.ready).active;
+      if (!worker) return;
+
+      // On liste ce que la page vient réellement de charger et on le confie au
+      // worker : c'est ce qui rend le jeu jouable hors ligne dès ce premier
+      // chargement, sans que le worker ait à connaître les empreintes de
+      // version collées dans les URL au déploiement.
+      const urls = performance
+        .getEntriesByType('resource')
+        .map((entry) => entry.name)
+        .filter((name) => name.startsWith(location.origin));
+      worker.postMessage({
+        type: 'precache',
+        urls: [location.href.split('#')[0], ...urls],
+      });
+    } catch {
+      /* pas de hors ligne, le jeu marche quand même */
+    }
+  });
 }
 
 Scenery.reset();

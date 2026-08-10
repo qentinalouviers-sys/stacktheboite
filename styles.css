@@ -60,7 +60,7 @@ body {
 /* Pendant l'écran de fin, le score du HUD ferait doublon avec celui de la
    carte, en plus flou. On l'escamote. */
 body.is-over #hud,
-body.is-over #haptics-toggle {
+body.is-over #controls {
   opacity: 0;
   transition: opacity 220ms ease;
   pointer-events: none;
@@ -125,10 +125,42 @@ body.is-over #haptics-toggle {
 
 /* --- Bouton vibration --------------------------------------- */
 
-#haptics-toggle {
+#controls {
   position: absolute;
   top: calc(env(safe-area-inset-top, 0px) + 12px);
   right: calc(env(safe-area-inset-right, 0px) + 12px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 5;
+}
+
+/* Pastille d'invitation : le son démarre coupé, encore faut-il que le
+   joueur sache qu'il existe. Elle disparaît dès qu'on y touche. */
+.hint {
+  order: -1;
+  padding: 6px 11px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.09);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  opacity: 0.75;
+  animation: hint-in 500ms ease-out both;
+  pointer-events: none;
+}
+
+.hint.hidden { display: none; }
+
+@keyframes hint-in {
+  from { opacity: 0; transform: translateX(6px); }
+  to { opacity: 0.75; transform: none; }
+}
+
+#sound-toggle,
+#haptics-toggle {
+  position: relative;
   width: 44px; /* cible tactile minimale confortable */
   height: 44px;
   display: grid;
@@ -141,10 +173,12 @@ body.is-over #haptics-toggle {
   -webkit-tap-highlight-color: transparent;
 }
 
-#haptics-toggle[hidden] {
+#haptics-toggle[hidden],
+#sound-toggle[hidden] {
   display: none;
 }
 
+#sound-toggle svg,
 #haptics-toggle svg {
   width: 21px;
   height: 21px;
@@ -155,20 +189,29 @@ body.is-over #haptics-toggle {
   opacity: 0.72;
 }
 
+#sound-toggle .cross,
 #haptics-toggle .cross {
   opacity: 0;
 }
 
+#sound-toggle.off svg,
 #haptics-toggle.off svg {
   opacity: 0.4;
 }
 
+#sound-toggle.off .waves,
 #haptics-toggle.off .waves {
   opacity: 0;
 }
 
+#sound-toggle.off .cross,
 #haptics-toggle.off .cross {
   opacity: 1;
+}
+
+#sound-toggle .speaker {
+  fill: currentColor;
+  stroke-linejoin: round;
 }
 
 /* --- Écrans ------------------------------------------------- */
