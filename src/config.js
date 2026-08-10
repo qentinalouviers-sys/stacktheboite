@@ -405,7 +405,64 @@ export const HAPTIC_GAME_OVER = [0, 40, 70, 90];
 // qui compte pour lire les débords.
 export const GROUND_RECEIVES_SHADOW = false;
 
-/* --- Rétention (§8, branché à l'étape 4) -------------------- */
+/* --- Compte joueur ------------------------------------------ */
+
+// Vide tant qu'il n'y a pas de serveur. Dès qu'un endpoint est renseigné ici,
+// account.js lui envoie les inscriptions et les scores. Contrat de l'API
+// documenté dans le README. Tant que c'est vide, RIEN ne quitte le téléphone.
+export const ACCOUNT_ENDPOINT = '';
+export const ACCOUNT_TIMEOUT_MS = 6000;
+
+export const PSEUDO_MIN = 2;
+export const PSEUDO_MAX = 20;
+// Lettres accentuées comprises, plus espace, tiret, souligné et point.
+export const PSEUDO_PATTERN = /^[\p{L}\p{N} ._-]{2,20}$/u;
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+
+// Le RGPD exige un consentement LIBRE : la CNIL considère qu'un consentement
+// marketing qui conditionne l'accès à un service n'est pas valide. Passer
+// cette constante à false rend la case facultative, sans rien changer d'autre.
+export const MARKETING_CONSENT_REQUIRED = true;
+
+// Âge du consentement numérique en France.
+export const MIN_AGE = 15;
+
+// Version des conditions acceptées. À incrémenter à CHAQUE modification du
+// texte : les consentements sont horodatés avec cette version, c'est ce qui
+// permet de prouver à quoi le joueur a consenti, et de savoir qui doit
+// re-consentir après une mise à jour.
+export const LEGAL_VERSION = '2026-08-10';
+export const LEGAL_URL = './legal.html';
+
+/* --- Rétention et gamification (§8) ------------------------- */
 
 export const STORAGE_KEY = 'qentina_stack_v1';
-export const REWARD_TIERS = [15, 30, 50];
+
+// Paliers de récompense. Le code est généré côté client : il est trivialement
+// falsifiable, c'est un geste commercial et pas un bon de réduction sérieux.
+// Voir rewards.js pour le point d'accroche serveur.
+export const REWARD_TIERS = [
+  { boxes: 15, label: 'Un café offert' },
+  { boxes: 30, label: 'Une boisson offerte' },
+  { boxes: 50, label: 'Un dessert offert' },
+];
+export const REWARD_PREFIX = 'QEN';
+
+// Badges. Le seuil `burn` correspond au niveau où le carton commence à roussir,
+// histoire que l'effet de brûlure serve aussi de jalon.
+export const BADGES = [
+  { id: 'premiere-tour', icon: '🍕', label: 'Première tour', hint: '10 boîtes empilées' },
+  { id: 'belle-serie', icon: '✨', label: 'Belle série', hint: '5 perfects d\'affilée' },
+  { id: 'main-sure', icon: '🎯', label: 'Main sûre', hint: '10 perfects d\'affilée' },
+  { id: 'carton-roussi', icon: '🔥', label: 'Ça chauffe', hint: '12 boîtes : le carton roussit' },
+  { id: 'carton-calcine', icon: '🌋', label: 'Carton calciné', hint: '55 boîtes' },
+  { id: 'habitue', icon: '🧑‍🍳', label: 'Habitué', hint: '10 parties jouées' },
+  { id: 'maison', icon: '🏆', label: 'Record maison', hint: '50 boîtes' },
+];
+
+/* --- Partage ------------------------------------------------ */
+
+export const SHARE_IMAGE_WIDTH = 1080;
+export const SHARE_IMAGE_HEIGHT = 1920;
+export const SHARE_URL = 'https://qentinalouviers-sys.github.io/stacktheboite/';
+export const SHARE_TITLE = 'QENTINA STACK';

@@ -29,12 +29,12 @@ et exposer `window.__qentina` (jeu, renderer, scène) dans la console.
 | 1 | Mécanique + découpe + chute + score | ✅ |
 | 2 | Squash & stretch, ondes, particules, tremblement, effets perfect | ✅ |
 | 3 | Boîte à pizza QENTINA, four, salle, fond dégradé | ✅ |
-| 4 | Haptique, manifeste PWA | ✅ — audio, offline et paliers à faire |
+| 4 | Haptique, PWA, profil joueur, paliers, partage | ✅ — audio et offline à faire |
 
 Fait : la mécanique complète, les effets de pose, la boîte à pizza blanche avec
 QENTINA imprimé sur les tranches, le four napolitain et sa salle, le fond qui
 passe de l'intérieur chaud au ciel nocturne, la vibration, le manifeste PWA.
-Manquent l'audio, le fonctionnement hors ligne et les paliers de récompense.
+Manquent l'audio et le fonctionnement hors ligne.
 
 ## Le décor
 
@@ -83,9 +83,13 @@ src/
   textures.js       atlas carton QENTINA généré au canvas
   scenery.js        fond dégradé et couleur de lumière selon la hauteur
   haptics.js        vibration, avec no-op silencieux si non supporté
+  account.js        profil joueur, consentements, seul module qui parle réseau
+  rewards.js        paliers, codes, badges
+  share.js          partage natif et génération de la carte de score
   ui.js             HUD DOM
   storage.js        meilleur score et préférences (localStorage)
 manifest.webmanifest, icon.svg
+legal.html          CGU et politique de confidentialité
 ```
 
 `audio.js` arrivera avec l'étape 4. `effects.js` est un ajout à l'arborescence
@@ -198,6 +202,97 @@ Le squash `scaleY 0.72` du §3 et l'interdiction de scaler le mesh du §4 se
 concilient : le squash est transitoire (180 ms), les redimensionnements
 permanents régénèrent la géométrie.
 
+## Profil joueur, paliers et partage
+
+### Jouer ne demande rien
+
+Aucun compte n'est requis pour jouer, et le formulaire n'apparaît **jamais**
+avant la fin d'une partie. Le profil sert uniquement à enregistrer un score et
+à récupérer les paliers.
+
+### Il n'y a pas encore de serveur — et c'est important
+
+Le jeu est un site statique. **Tant que `ACCOUNT_ENDPOINT` est vide dans
+`config.js`, rien ne quitte le téléphone** : ni le pseudo, ni l'e-mail, ni le
+score. Le profil est écrit dans le `localStorage` de l'appareil, point. En
+conséquence :
+
+- QENTINA ne reçoit aucune adresse e-mail ;
+- « J'ai déjà un profil » ne peut retrouver qu'un profil créé **sur ce même
+  téléphone**, ce que le message d'erreur dit explicitement au joueur ;
+- les codes de récompense sont générés côté client, donc trivialement
+  falsifiables. C'est un geste commercial, pas un bon de réduction.
+
+Tout le réseau passe par une seule fonction privée, `post()` dans
+`account.js`. Le jour où un endpoint existe, il suffit de renseigner
+`ACCOUNT_ENDPOINT` : aucune autre ligne du jeu ne change.
+
+### Contrat de l'API à implémenter
+
+Quatre routes, toutes en `POST`, corps et réponse en JSON, CORS ouvert au
+domaine du jeu. Un Cloudflare Worker avec un binding KV suffit.
+
+| Route | Corps envoyé | Réponse attendue |
+|---|---|---|
+| `/register` | `{pseudo, email, consents, best}` | `200` quelconque |
+| `/signin` | `{email}` | `{pseudo, best}` si connu, `404` sinon |
+| `/score` | `{email, pseudo, score, streak}` | `200` quelconque |
+| `/forget` | `{email}` | `200`, et effacement effectif côté serveur |
+
+`consents` contient, pour `terms` et `marketing`, `{given, at, version}` :
+l'horodatage et la version des conditions acceptées. **Conserve-les tels
+quels** — c'est ce qui permet de prouver, en cas de contrôle, à quoi le joueur
+a consenti et quand.
+
+Le jeu ne bloque jamais sur le réseau : le profil est écrit en local **avant**
+l'appel, et un échec réseau est silencieux. Personne ne doit perdre son
+inscription parce que le wifi de la salle a hoqueté.
+
+### Consentement marketing : le point à faire trancher
+
+Le formulaire exige aujourd'hui la case marketing, comme demandé. Il faut
+savoir que le RGPD exige un consentement **libre** : la CNIL considère qu'un
+consentement marketing conditionnant l'accès à un service n'est pas valide, ce
+qui expose à une plainte et rend la base de contacts contestable.
+
+La case est donc pilotée par une constante unique,
+`MARKETING_CONSENT_REQUIRED` dans `config.js`. La passer à `false` la rend
+facultative et ajoute la mention « facultatif, sans conséquence sur le jeu »
+— rien d'autre à toucher. **À trancher avec un juriste.**
+
+### Conditions générales
+
+`legal.html` contient un projet complet de CGU et de politique de
+confidentialité : éditeur, objet, profil, paliers, tableau des traitements avec
+finalités, bases légales et durées de conservation, prospection, destinataires,
+droits, sécurité, propriété intellectuelle, responsabilité, droit applicable.
+
+**Les mentions entre crochets doivent être renseignées par QENTINA** (raison
+sociale, adresse, SIREN, e-mail de contact, durée de validité des codes,
+médiateur de la consommation) **et le texte doit être relu par un
+professionnel du droit** avant d'être opposé aux clients.
+
+À chaque modification du texte, incrémenter `LEGAL_VERSION` : les consentements
+sont horodatés avec cette version, c'est ce qui permet de savoir qui doit
+re-consentir.
+
+Le droit à l'effacement est implémenté dans le jeu : le bouton « Effacer
+définitivement mes données » vide le `localStorage` et appelle `/forget`.
+
+### Partage
+
+Instagram et TikTok n'apparaissent dans la feuille de partage native que si on
+partage une **image**, pas du texte. Le jeu génère donc une carte au format
+story (1080 × 1920) avec le score, le pseudo et la marque, et la passe à
+`navigator.share`. Trois replis en cascade : image native, puis texte et lien
+en natif, puis copie dans le presse-papier, puis téléchargement de l'image.
+
+### Gamification
+
+Trois paliers de récompense avec code, une barre de progression vers le
+palier suivant, et sept badges à débloquer — dont deux calés sur la brûlure du
+carton, pour que l'effet visuel serve aussi de jalon.
+
 ## Vibration : la moitié des clients n'en aura pas
 
 `navigator.vibrate` **n'existe pas sur Safari iOS**, et Apple n'expose aucune
@@ -232,7 +327,12 @@ Non incluses dans le dépôt (jetables), mais validées sous Chromium en 390×84
   revient exactement à 1, le dessous de la boîte ne bouge pas d'un flottant,
   l'onde s'éteint pile à sa durée, le tremblement dure exactement 150 ms ;
 - le bouton vibration ne pose pas de boîte, son état persiste, et les quatre
-  motifs de vibration partent au bon moment.
+  motifs de vibration partent au bon moment ;
+- parcours de compte de bout en bout : partie jouable sans profil, validation
+  du formulaire vide puis avec un e-mail invalide, création de profil,
+  normalisation de l'e-mail, consentements horodatés et versionnés, mode
+  connexion qui masque pseudo et consentements, partage, effacement RGPD ;
+- un tap derrière la feuille de compte ouverte ne relance pas de partie.
 
 ## À tester sur téléphone
 

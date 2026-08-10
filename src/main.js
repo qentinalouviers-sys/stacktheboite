@@ -12,6 +12,9 @@ import * as Scenery from './scenery.js';
 import * as Haptics from './haptics.js';
 import * as UI from './ui.js';
 import * as Storage from './storage.js';
+import * as Account from './account.js';
+import * as Rewards from './rewards.js';
+import { share } from './share.js';
 
 const DEBUG = new URLSearchParams(location.search).has('debug');
 
@@ -139,16 +142,144 @@ const game = new Game({
     Haptics.gameOver();
   },
 
-  onEndScreen(score) {
-    const record = Storage.submitScore(score);
-    UI.setBest(Storage.get('best'));
-    UI.showEnd(score, Storage.get('best'), record);
+  onEndScreen(score, bestStreak) {
+    const record = Storage.submitScore(score, bestStreak);
+    const best = Storage.get('best');
+    UI.setBest(best);
+
+    // Paliers et badges se calculent sur le score de LA partie, pas sur le
+    // record : c'est ce qu'on vient de faire qui est récompensé.
+    const tier = Rewards.tierFor(score);
+    const claim = tier ? Rewards.claimReward(tier) : null;
+    const fresh = Storage.unlockBadges(
+      Rewards.earnedBadges({
+        score,
+        streak: bestStreak,
+        games: Storage.get('games'),
+        best,
+      })
+    );
+
+    const account = Account.current();
+    UI.showEnd({
+      score,
+      best,
+      record,
+      claim,
+      nextTier: Rewards.nextTier(score),
+      progress: Rewards.progressToNext(score),
+      badges: Storage.get('badges'),
+      freshBadges: fresh,
+      signedIn: Boolean(account),
+      pseudo: account ? account.pseudo : '',
+    });
+
+    lastScore = score;
+    lastStreak = bestStreak;
+
+    // Un joueur déjà inscrit n'a rien à faire : son score part tout seul.
+    if (account) Account.saveScore(score, bestStreak);
   },
 });
+
+/* --- Compte, récompenses, partage --------------------------- */
+
+let lastScore = 0;
+let lastStreak = 0;
+
+UI.showForgetButton(Account.isSignedIn());
+
+UI.setupAccount({
+  onOpenSheet() {
+    UI.openSheet(Account.isSignedIn() ? 'signin' : 'signup');
+  },
+
+  async onRegister(form) {
+    UI.setSubmitting(true);
+    const result = await Account.register(form, Storage.get('best'));
+    UI.setSubmitting(false);
+    if (!result.ok) {
+      UI.showErrors(result.errors);
+      UI.setFormStatus('');
+      return;
+    }
+    await Account.saveScore(lastScore, lastStreak);
+    UI.showForgetButton(true);
+    UI.closeSheet();
+    UI.setEndStatus(`Score enregistré. À bientôt, ${result.account.pseudo}.`);
+    refreshEndAccount();
+  },
+
+  async onSignIn(email) {
+    UI.setSubmitting(true);
+    const result = await Account.signIn(email);
+    UI.setSubmitting(false);
+    if (!result.ok) {
+      UI.showErrors(result.errors);
+      return;
+    }
+    await Account.saveScore(lastScore, lastStreak);
+    UI.showForgetButton(true);
+    UI.closeSheet();
+    UI.setEndStatus(`Content de te revoir, ${result.account.pseudo}.`);
+    refreshEndAccount();
+  },
+
+  async onForget() {
+    await Account.forget();
+    UI.showForgetButton(false);
+    UI.closeSheet();
+    UI.setBest(0);
+    UI.setEndStatus('Toutes tes données ont été effacées de cet appareil.');
+    refreshEndAccount();
+  },
+
+  async onShare() {
+    const account = Account.current();
+    UI.setEndStatus('Préparation du partage…');
+    const result = await share({
+      score: lastScore,
+      pseudo: account ? account.pseudo : '',
+      best: Storage.get('best'),
+    });
+    UI.setEndStatus(
+      {
+        shared: 'Merci du partage !',
+        copied: 'Message copié dans le presse-papier.',
+        downloaded: 'Image enregistrée.',
+        cancelled: '',
+        failed: 'Le partage a échoué, réessaie.',
+      }[result] || ''
+    );
+  },
+});
+
+/** Réaffiche l'écran de fin avec l'état de compte à jour. */
+function refreshEndAccount() {
+  const account = Account.current();
+  const best = Storage.get('best');
+  const status = document.getElementById('end-status').textContent;
+  UI.showEnd({
+    score: lastScore,
+    best,
+    record: false,
+    claim: Storage.get('claimed').find((c) => lastScore >= c.boxes) || null,
+    nextTier: Rewards.nextTier(lastScore),
+    progress: Rewards.progressToNext(lastScore),
+    badges: Storage.get('badges'),
+    freshBadges: [],
+    signedIn: Boolean(account),
+    pseudo: account ? account.pseudo : '',
+  });
+  UI.setEndStatus(status);
+}
 
 /* --- Entrée ------------------------------------------------ */
 
 function onPointerDown(event) {
+  // La feuille de compte est modale : tant qu'elle est ouverte, un tap ne
+  // doit surtout pas relancer une partie derrière elle.
+  if (UI.isBlocking()) return;
   event.preventDefault();
   game.tap();
 }
