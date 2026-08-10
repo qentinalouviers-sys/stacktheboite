@@ -2,10 +2,16 @@
    Génération procédurale des textures. Aucun fichier image :
    tout sort d'un canvas 2D.
 
-   UNE seule texture pour toutes les boîtes, en atlas :
+   UNE seule texture pour toutes les boîtes, en atlas de quatre bandes :
 
-     moitié haute du canvas  -> tranche : carton + QENTINA, répétable
-     moitié basse du canvas  -> dessus / dessous : carton uni
+     bande 0 -> tranche intacte : carton + QENTINA, répétable
+     bande 1 -> tranche roussie
+     bande 2 -> tranche calcinée
+     bande 3 -> dessus / dessous : carton uni
+
+   Les trois états de tranche donnent les marques de brûlure ; la teinte du
+   matériau, elle, dérive en continu. On a donc une progression lisse sans
+   avoir à mélanger deux textures dans un shader.
 
    Pourquoi un atlas : avec un matériau par face, une BoxGeometry coûte
    six appels de dessin. À 25 boîtes ça faisait 175 appels rien que pour
@@ -97,6 +103,70 @@ function drawSideBand(ctx, w, h) {
   drawSpacedText(ctx, C.BRAND_TEXT, w / 2, baseline, fontSize * C.BRAND_LETTER_SPACING);
 }
 
+/**
+ * Marques de brûlure par-dessus une tranche déjà dessinée. `intensity` va de
+ * 0 à 1. La chaleur vient du dessous, donc le bord bas noircit en premier.
+ */
+function drawScorch(ctx, w, h, intensity) {
+  if (intensity <= 0) return;
+
+  // Bord bas noirci : c'est de là que vient la chaleur.
+  const edge = ctx.createLinearGradient(0, h, 0, h * 0.12);
+  edge.addColorStop(0, `rgba(${C.SCORCH_EDGE_COLOR}, ${0.95 * intensity})`);
+  edge.addColorStop(0.35, `rgba(${C.SCORCH_EDGE_COLOR}, ${0.5 * intensity})`);
+  edge.addColorStop(1, `rgba(${C.SCORCH_EDGE_COLOR}, 0)`);
+  ctx.fillStyle = edge;
+  ctx.fillRect(0, 0, w, h);
+
+  // Taches irrégulières, plus nombreuses et plus opaques vers le bas.
+  const count = Math.round(C.SCORCH_BLOTCHES * intensity);
+  for (let i = 0; i < count; i++) {
+    const x = Math.random() * w;
+    const y = h * (0.25 + Math.random() * 0.75);
+    const r = h * (0.1 + Math.random() * 0.4);
+    const alpha = (0.22 + Math.random() * 0.62) * intensity;
+    const blob = ctx.createRadialGradient(x, y, 0, x, y, r);
+    blob.addColorStop(0, `rgba(${C.SCORCH_BLOTCH_COLOR}, ${alpha})`);
+    blob.addColorStop(1, `rgba(${C.SCORCH_BLOTCH_COLOR}, 0)`);
+    ctx.fillStyle = blob;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Grandes plaques quasi noires : le carton a cédé par endroits.
+  if (intensity > 0.5) {
+    const deep = (intensity - 0.5) / 0.5;
+    for (let i = 0; i < Math.round(7 * deep); i++) {
+      const x = Math.random() * w;
+      const y = h * (0.45 + Math.random() * 0.55);
+      const r = h * (0.22 + Math.random() * 0.3);
+      const patch = ctx.createRadialGradient(x, y, 0, x, y, r);
+      patch.addColorStop(0, `rgba(12, 7, 4, ${0.85 * deep})`);
+      patch.addColorStop(0.6, `rgba(12, 7, 4, ${0.5 * deep})`);
+      patch.addColorStop(1, 'rgba(12, 7, 4, 0)');
+      ctx.fillStyle = patch;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Quelques points de braise sur le carton le plus attaqué. Sans eux, le
+  // carton a l'air sale plutôt qu'en train de brûler.
+  if (intensity > 0.6) {
+    ctx.fillStyle = C.SCORCH_EMBER_COLOR;
+    const specks = Math.round(C.SCORCH_EMBER_SPECKS * (intensity - 0.6) / 0.4);
+    for (let i = 0; i < specks; i++) {
+      const x = Math.random() * w;
+      const y = h * (0.55 + Math.random() * 0.42);
+      ctx.globalAlpha = 0.35 + Math.random() * 0.5;
+      ctx.fillRect(x, y, 3 + Math.random() * 5, 2 + Math.random() * 3);
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
 /** Zone couvercle : carton crème uni, juste le grain. */
 function drawCap(ctx, x, y, w, h) {
   ctx.fillStyle = C.CARDBOARD_COLOR;
@@ -108,19 +178,38 @@ export function getAtlas() {
   if (atlas) return atlas;
 
   const w = C.ATLAS_WIDTH;
-  const bandHeight = C.ATLAS_HEIGHT / 2;
+  const bands = C.SIDE_BANDS.length + 1;
+  const bandHeight = C.ATLAS_HEIGHT / bands;
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = C.ATLAS_HEIGHT;
   const ctx = canvas.getContext('2d');
 
-  // flipY est actif par défaut dans Three.js : la moitié HAUTE du canvas
-  // correspond aux v hauts, donc à SIDE_V0..SIDE_V1 (voir config).
-  drawSideBand(ctx, w, bandHeight);
-  ctx.save();
-  ctx.translate(0, bandHeight);
-  drawCap(ctx, 0, 0, w, bandHeight);
-  ctx.restore();
+  // flipY est actif par défaut dans Three.js : la bande du HAUT du canvas
+  // correspond aux v les plus hauts, donc à SIDE_BANDS[0] (voir config).
+  for (let i = 0; i < C.SIDE_BANDS.length; i++) {
+    ctx.save();
+    ctx.translate(0, i * bandHeight);
+    drawSideBand(ctx, w, bandHeight);
+    drawScorch(ctx, w, bandHeight, i / (C.SIDE_BANDS.length - 1));
+    ctx.restore();
+  }
+  // Bande couvercle : une colonne par état de brûlure.
+  const capTop = C.SIDE_BANDS.length * bandHeight;
+  const columns = C.CAP_BANDS.length;
+  const columnWidth = w / columns;
+  for (let i = 0; i < columns; i++) {
+    ctx.save();
+    ctx.translate(i * columnWidth, capTop);
+    drawCap(ctx, 0, 0, columnWidth, bandHeight);
+    drawScorch(
+      ctx,
+      columnWidth,
+      bandHeight,
+      (i / (columns - 1)) * C.CAP_SCORCH_RATIO
+    );
+    ctx.restore();
+  }
 
   atlas = finish(canvas, true);
   // Répétition horizontale seulement : en V, les zones tranche et couvercle
@@ -140,6 +229,7 @@ export function setAnisotropy(value) {
    Décor : mosaïque du four, carrelage de la salle, ombre au sol.
    ============================================================ */
 
+let smokeTexture = null;
 let mosaicTexture = null;
 let marbleTexture = null;
 let floorTexture = null;
@@ -317,4 +407,43 @@ export function getFireTexture() {
 
   fireTexture = finish(canvas, false);
   return fireTexture;
+}
+
+/** Bouffée de fumée : un disque doux, bords fondus. */
+export function getSmokeTexture() {
+  if (smokeTexture) return smokeTexture;
+
+  const size = C.SMOKE_TEXTURE_SIZE;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  const g = ctx.createRadialGradient(
+    size / 2, size / 2, 0,
+    size / 2, size / 2, size / 2
+  );
+  g.addColorStop(0, 'rgba(255,255,255,0.9)');
+  g.addColorStop(0.45, 'rgba(255,255,255,0.42)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+
+  // Un peu de relief, sinon la bouffée est un disque trop net.
+  ctx.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < 8; i++) {
+    const x = Math.random() * size;
+    const y = Math.random() * size;
+    const r = size * (0.06 + Math.random() * 0.12);
+    const hole = ctx.createRadialGradient(x, y, 0, x, y, r);
+    hole.addColorStop(0, 'rgba(0,0,0,0.35)');
+    hole.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = hole;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  smokeTexture = finish(canvas, false);
+  return smokeTexture;
 }

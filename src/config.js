@@ -98,20 +98,31 @@ export const EDGE_OPACITY = 0.5;
 // vingt découpes. Le motif reste par ailleurs centré sur la tranche.
 export const TEXTURE_REF_LENGTH = 2.4;
 
-// Atlas 1024 x 512 : moitié haute = tranche, moitié basse = couvercle.
-// La bande de tranche fait donc 1024 x 256, et 1024 * BOX_HEIGHT /
+// Atlas 1024 x 1024, en quatre bandes de 1024 x 256 :
+//   trois états de tranche (intacte, roussie, calcinée) puis le couvercle.
+// Une bande de tranche fait 1024 x 256, et 1024 * BOX_HEIGHT /
 // TEXTURE_REF_LENGTH = 256 exactement : aucune déformation du texte.
 export const ATLAS_WIDTH = 1024;
-export const ATLAS_HEIGHT = 512;
+export const ATLAS_HEIGHT = 1024;
 
 // Sous-zones en coordonnées UV. Les marges évitent que le filtrage bilinéaire
-// et les mipmaps ne fassent baver une zone sur l'autre.
-export const SIDE_V0 = 0.503;
-export const SIDE_V1 = 0.997;
-export const CAP_U0 = 0.06;
-export const CAP_U1 = 0.44;
-export const CAP_V0 = 0.06;
-export const CAP_V1 = 0.44;
+// et les mipmaps ne fassent baver une bande sur sa voisine.
+export const SIDE_BANDS = [
+  { v0: 0.7520, v1: 0.9980 }, // carton intact
+  { v0: 0.5020, v1: 0.7480 }, // roussi
+  { v0: 0.2520, v1: 0.4980 }, // calciné
+];
+// La bande couvercle est découpée en trois colonnes, une par état de brûlure :
+// sans ça le dessus d'une boîte reste crème alors que ses tranches sont noires.
+export const CAP_BANDS = [
+  { u0: 0.020, u1: 0.310 },
+  { u0: 0.353, u1: 0.643 },
+  { u0: 0.687, u1: 0.977 },
+];
+export const CAP_V0 = 0.035;
+export const CAP_V1 = 0.215;
+// Un couvercle est moins exposé qu'une tranche : il roussit moins fort.
+export const CAP_SCORCH_RATIO = 0.6;
 
 export const CARDBOARD_COLOR = '#F4F1EA'; // pas de blanc pur : il crame en lumière chaude
 export const BRAND_TEXT = 'QENTINA';
@@ -134,6 +145,43 @@ export const GRAIN_ALPHA = 0.04; // grain de carton, très faible
 export const COLOR_RAMP_LEVELS = 60;
 export const COLOR_START = { h: 35, s: 0.10, l: 0.99 };
 export const COLOR_END = { h: 15, s: 0.22, l: 0.86 };
+
+/* --- Le carton qui brûle ------------------------------------ */
+
+// Rien ne brûle avant BURN_START_LEVEL : les premières boîtes doivent être
+// impeccables, sinon l'effet n'a pas de point de comparaison et on croit à
+// une texture sale. Ensuite la brûlure monte jusqu'à BURN_FULL_LEVEL.
+export const BURN_START_LEVEL = 12;
+export const BURN_FULL_LEVEL = 55;
+
+// Teinte vers laquelle la boîte dérive une fois complètement calcinée. Elle
+// s'applique PAR-DESSUS la rampe de chaleur : les paliers de texture donnent
+// les marques, la teinte donne la progression continue entre deux paliers.
+// Volontairement discrète : une teinte trop sombre écrase la texture et le
+// carton lit « brun uni » au lieu de « brûlé ». Ce sont les marques qui
+// doivent porter l'effet, pas l'assombrissement global.
+export const CHAR_TINT = { h: 26, s: 0.20, l: 0.68 };
+
+export const SCORCH_BLOTCHES = 44;
+export const SCORCH_BLOTCH_COLOR = '42, 22, 10';
+export const SCORCH_EDGE_COLOR = '18, 9, 4';
+export const SCORCH_EMBER_COLOR = '#ff7a24';
+export const SCORCH_EMBER_SPECKS = 22;
+
+/* --- La fumée de la tour ------------------------------------ */
+
+export const SMOKE_MAX = 14;
+export const SMOKE_TEXTURE_SIZE = 128;
+export const SMOKE_COLOR = 0xbdb5ac;
+export const SMOKE_INTERVAL = 0.2; // à brûlure maximale
+export const SMOKE_RISE_MIN = 0.55;
+export const SMOKE_RISE_MAX = 1.15;
+export const SMOKE_DRIFT = 0.28;
+export const SMOKE_LIFE = 2.6;
+export const SMOKE_SIZE_START = 0.85;
+export const SMOKE_SIZE_END = 3.6;
+export const SMOKE_OPACITY = 0.62;
+export const SMOKE_SPREAD = 0.7; // part de l'empreinte de la boîte
 
 // Boîte « signature » tous les N niveaux : liseré doré.
 export const SIGNATURE_EVERY = 10;

@@ -92,6 +92,31 @@ manifest.webmanifest, icon.svg
 prévue : ces effets ne sont ni des boîtes ni du décor, et `boxes.js` porte déjà
 la découpe, la tour et les fragments.
 
+## Le carton qui brûle
+
+Rien ne brûle avant le niveau 12 : les premières boîtes doivent être
+impeccables, sinon l'effet n'a pas de point de comparaison et le carton a
+simplement l'air sale. Ensuite la brûlure monte jusqu'au niveau 55, et de la
+fumée commence à s'élever du sommet de la tour.
+
+Le mélange se fait sur deux plans :
+
+- **Trois états de tranche dans l'atlas** — intacte, roussie, calcinée — qui
+  portent les marques : bord bas noirci, taches irrégulières, plaques quasi
+  noires, points de braise, QENTINA peu à peu mangé. Les couvercles ont leurs
+  propres colonnes dans l'atlas, sinon le dessus d'une boîte reste crème alors
+  que ses tranches sont noires.
+- **Une teinte qui dérive en continu** par-dessus, qui assure la transition
+  entre deux paliers.
+
+Le réglage qui compte : la teinte est **volontairement discrète**. Une teinte
+sombre écrase la texture et le carton lit « brun uni » au lieu de « brûlé ». Ce
+sont les marques qui doivent porter l'effet, pas l'assombrissement global.
+
+La fumée est un pool de bouffées qui montent du sommet, avec un débit
+proportionnel à la brûlure. Elles naissent au-dessus du couvercle et non dedans,
+faute de quoi la moitié de leur vie se passe cachée dans la boîte.
+
 ## Les effets de pose
 
 Deux règles tenues partout : aucun `setTimeout`, tout avance avec le delta de la
@@ -199,8 +224,10 @@ Non incluses dans le dépôt (jetables), mais validées sous Chromium en 390×84
 - game over : chute complète, écran de fin à 0,7 s, record écrit, rejeu en un tap ;
 - portrait et paysage : boîte dans le cadre sur toute sa course, y compris avec
   une tour décalée au maximum ;
-- 60 appels de dessin en régime établi et ~118 au pic d'une série de perfects,
-  7 textures, décor compris ;
+- 60 appels de dessin en régime établi et ~115 au pic d'une série de perfects,
+  8 textures, décor et fumée compris ;
+- 30 ko transférés hors Three.js (100 ko bruts), page chargée en 250 ms en
+  local ;
 - courbes des effets vérifiées pas à pas : l'écrasement culmine à 1,06 puis
   revient exactement à 1, le dessous de la boîte ne bouge pas d'un flottant,
   l'onde s'éteint pile à sa durée, le tremblement dure exactement 150 ms ;
@@ -219,7 +246,9 @@ C'est le feel qui est en jeu, pas l'habillage.
 5. Les effets de pose : l'écrasement se voit-il ? l'onde ? le tremblement à
    partir de cinq perfects est-il perceptible, ou faut-il monter
    `SHAKE_AMPLITUDE` au-delà de `0.04` ?
-6. La fenêtre perfect à `0.12` : atteignable au doigt ?
-7. Aucun scroll, aucun zoom, aucun rebond élastique.
+6. La brûlure : assez discrète au début, assez inquiétante à la fin ? Le seuil
+   est `BURN_START_LEVEL`, la vitesse `BURN_FULL_LEVEL`.
+7. La fenêtre perfect à `0.12` : atteignable au doigt ?
+8. Aucun scroll, aucun zoom, aucun rebond élastique.
 
 Il reste l'audio, le fonctionnement hors ligne et les paliers de récompense.

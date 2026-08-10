@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import * as C from './config.js';
 import { Game, State } from './game.js';
-import { Stack, MovingBox, Fragments } from './boxes.js';
+import { Stack, MovingBox, Fragments, burnFactor } from './boxes.js';
 import { getAtlas, setAnisotropy } from './textures.js';
 import { Effects } from './effects.js';
 import * as Scenery from './scenery.js';
@@ -118,6 +118,7 @@ const game = new Game({
     movingBox.hide();
     if (fragment) fragments.spawn(fragment, level);
     effects.onPlace(mesh, placed, perfect, streak);
+    effects.setSmokeSource(placed, burnFactor(level));
 
     if (perfect) {
       UI.showPerfect(streak);

@@ -9,13 +9,44 @@ import { getAtlas } from './textures.js';
 
 const _color = new THREE.Color();
 
-/** Teinte du carton selon la hauteur : elle multiplie la texture crème. */
+/**
+ * Où en est la brûlure à ce niveau, de 0 (carton intact) à 1 (calciné).
+ * Exporté : la fumée de la tour s'en sert aussi.
+ */
+export function burnFactor(level) {
+  return THREE.MathUtils.clamp(
+    (level - C.BURN_START_LEVEL) / (C.BURN_FULL_LEVEL - C.BURN_START_LEVEL),
+    0,
+    1
+  );
+}
+
+/** Indice d'état de brûlure dans l'atlas : 0 intact, dernier calciné. */
+function charStage(level) {
+  const last = C.SIDE_BANDS.length - 1;
+  return Math.min(last, Math.round(burnFactor(level) * last));
+}
+
+/**
+ * Teinte du carton : elle multiplie la texture. Deux dérives se composent —
+ * la chaleur qui monte avec la hauteur (§4), puis l'assombrissement de la
+ * brûlure. Les paliers de texture donnent les marques, cette teinte-là donne
+ * la progression continue entre deux paliers.
+ */
 export function boxTint(level) {
   const t = Math.min(level / C.COLOR_RAMP_LEVELS, 1);
-  const h = THREE.MathUtils.lerp(C.COLOR_START.h, C.COLOR_END.h, t) / 360;
+  const h = THREE.MathUtils.lerp(C.COLOR_START.h, C.COLOR_END.h, t);
   const s = THREE.MathUtils.lerp(C.COLOR_START.s, C.COLOR_END.s, t);
   const l = THREE.MathUtils.lerp(C.COLOR_START.l, C.COLOR_END.l, t);
-  return _color.setHSL(h, s, l).getHex();
+
+  const burn = burnFactor(level);
+  return _color
+    .setHSL(
+      THREE.MathUtils.lerp(h, C.CHAR_TINT.h, burn) / 360,
+      THREE.MathUtils.lerp(s, C.CHAR_TINT.s, burn),
+      THREE.MathUtils.lerp(l, C.CHAR_TINT.l, burn)
+    )
+    .getHex();
 }
 
 /**
@@ -38,31 +69,34 @@ function mapFaceUV(uv, face, u0, u1, v0, v1) {
  * ailleurs centré sur la tranche, ce qui évite qu'une boîte étroite tombe
  * systématiquement sur un blanc entre deux mots.
  */
-function mapSideUV(uv, face, width) {
+function mapSideUV(uv, face, width, band) {
   const span = width / C.TEXTURE_REF_LENGTH;
   const u0 = (1 - span) / 2; // valeurs hors [0,1] : RepeatWrapping s'en charge
-  mapFaceUV(uv, face, u0, u0 + span, C.SIDE_V0, C.SIDE_V1);
+  mapFaceUV(uv, face, u0, u0 + span, band.v0, band.v1);
 }
 
-function applyUVs(geometry, sizeX, sizeZ) {
+function applyUVs(geometry, sizeX, sizeZ, level) {
   const uv = geometry.attributes.uv;
+  const stage = charStage(level);
+  const band = C.SIDE_BANDS[stage];
+  const cap = C.CAP_BANDS[stage];
 
-  mapSideUV(uv, 0, sizeZ); // +X : sa largeur est sizeZ
-  mapSideUV(uv, 1, sizeZ); // -X
-  mapSideUV(uv, 4, sizeX); // +Z : sa largeur est sizeX
-  mapSideUV(uv, 5, sizeX); // -Z
+  mapSideUV(uv, 0, sizeZ, band); // +X : sa largeur est sizeZ
+  mapSideUV(uv, 1, sizeZ, band); // -X
+  mapSideUV(uv, 4, sizeX, band); // +Z : sa largeur est sizeX
+  mapSideUV(uv, 5, sizeX, band); // -Z
 
   // Dessus et dessous : carton uni. On reste dans la zone couvercle sans
   // répétition — le grain s'étire avec la boîte, invisible à cette opacité.
-  mapFaceUV(uv, 2, C.CAP_U0, C.CAP_U1, C.CAP_V0, C.CAP_V1);
-  mapFaceUV(uv, 3, C.CAP_U0, C.CAP_U1, C.CAP_V0, C.CAP_V1);
+  mapFaceUV(uv, 2, cap.u0, cap.u1, C.CAP_V0, C.CAP_V1);
+  mapFaceUV(uv, 3, cap.u0, cap.u1, C.CAP_V0, C.CAP_V1);
 
   uv.needsUpdate = true;
 }
 
-function makeGeometry(sizeX, sizeZ) {
+function makeGeometry(sizeX, sizeZ, level) {
   const geometry = new THREE.BoxGeometry(sizeX, C.BOX_HEIGHT, sizeZ);
-  applyUVs(geometry, sizeX, sizeZ);
+  applyUVs(geometry, sizeX, sizeZ, level);
   return geometry;
 }
 
@@ -72,7 +106,7 @@ function makeGeometry(sizeX, sizeZ) {
  * le principal risque visuel du projet.
  */
 export function createBoxMesh(sizeX, sizeZ, level) {
-  const geometry = makeGeometry(sizeX, sizeZ);
+  const geometry = makeGeometry(sizeX, sizeZ, level);
   // Un seul matériau, un seul appel de dessin par boîte : toutes les faces
   // tapent dans le même atlas, la distinction se fait par les UV.
   const material = new THREE.MeshLambertMaterial({
@@ -122,9 +156,9 @@ function disposeMesh(mesh) {
 }
 
 /** Remplace la géométrie d'un mesh existant sans réallouer le Mesh. */
-function reshape(mesh, sizeX, sizeZ) {
+function reshape(mesh, sizeX, sizeZ, level) {
   mesh.geometry.dispose();
-  mesh.geometry = makeGeometry(sizeX, sizeZ);
+  mesh.geometry = makeGeometry(sizeX, sizeZ, level);
   const edges = mesh.getObjectByName('edges');
   if (edges) {
     edges.geometry.dispose();
@@ -175,7 +209,7 @@ export class MovingBox {
   }
 
   spawn(box, level) {
-    reshape(this.mesh, box.sizeX, box.sizeZ);
+    reshape(this.mesh, box.sizeX, box.sizeZ, level);
     retint(this.mesh, level, false);
     this.mesh.visible = true;
     this.sync(box);
@@ -207,7 +241,7 @@ export class Fragments {
       item = { mesh: createBoxMesh(1, 1, level) };
       this.scene.add(item.mesh);
     }
-    reshape(item.mesh, spec.sizeX, spec.sizeZ);
+    reshape(item.mesh, spec.sizeX, spec.sizeZ, level);
     retint(item.mesh, level, false);
     item.mesh.visible = true;
     item.mesh.position.set(spec.x, spec.y + C.BOX_HEIGHT / 2, spec.z);

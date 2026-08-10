@@ -17,6 +17,7 @@
 
 import * as THREE from 'three';
 import * as C from './config.js';
+import { getSmokeTexture } from './textures.js';
 
 /**
  * Orientation face caméra, calculée une fois. La caméra ne tourne jamais et
@@ -261,6 +262,99 @@ export class Sparks {
 }
 
 /* ------------------------------------------------------------
+   Fumée de la tour. Elle ne démarre qu'une fois le carton attaqué, et
+   son débit suit la brûlure : c'est le signal que ça chauffe.
+   ------------------------------------------------------------ */
+
+export class Smoke {
+  constructor(scene) {
+    this.scene = scene;
+    this.geometry = new THREE.PlaneGeometry(1, 1);
+    this.material = new THREE.MeshBasicMaterial({
+      map: getSmokeTexture(),
+      color: C.SMOKE_COLOR,
+      transparent: true,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    this.pool = [];
+    this.active = [];
+    this.timer = 0;
+  }
+
+  /** `source` décrit la boîte du sommet, `burn` va de 0 à 1. */
+  update(dt, source, burn) {
+    if (burn > 0 && source) {
+      this.timer -= dt * burn;
+      if (this.timer <= 0) {
+        this.timer = C.SMOKE_INTERVAL;
+        this.emit(source, burn);
+      }
+    }
+
+    for (let i = this.active.length - 1; i >= 0; i--) {
+      const s = this.active[i];
+      s.t += dt / C.SMOKE_LIFE;
+      if (s.t >= 1) {
+        this.active.splice(i, 1);
+        this.recycle(s);
+        continue;
+      }
+      s.mesh.position.x += s.vx * dt;
+      s.mesh.position.y += s.vy * dt;
+      s.mesh.position.z += s.vz * dt;
+      const size = THREE.MathUtils.lerp(
+        C.SMOKE_SIZE_START,
+        C.SMOKE_SIZE_END,
+        s.t
+      );
+      s.mesh.scale.set(size, size, 1);
+      // Montée rapide puis longue extinction : une bouffée se dissipe, elle
+      // ne s'éteint pas d'un coup.
+      s.mesh.material.opacity =
+        Math.min(1, s.t * 5) * (1 - s.t) * C.SMOKE_OPACITY * s.strength;
+    }
+  }
+
+  emit(source, burn) {
+    let item = this.pool.pop();
+    if (!item) {
+      if (this.active.length >= C.SMOKE_MAX) return;
+      const mesh = new THREE.Mesh(this.geometry, this.material.clone());
+      mesh.quaternion.copy(BILLBOARD);
+      this.scene.add(mesh);
+      item = { mesh };
+    }
+
+    const spread = Math.max(source.sizeX, source.sizeZ) * C.SMOKE_SPREAD;
+    item.mesh.visible = true;
+    item.mesh.position.set(
+      source.x + (Math.random() - 0.5) * spread,
+      source.y + C.BOX_HEIGHT + 0.12, // au-dessus du couvercle, pas dedans
+      source.z + (Math.random() - 0.5) * spread
+    );
+    item.vy =
+      C.SMOKE_RISE_MIN + Math.random() * (C.SMOKE_RISE_MAX - C.SMOKE_RISE_MIN);
+    item.vx = (Math.random() - 0.5) * C.SMOKE_DRIFT;
+    item.vz = (Math.random() - 0.5) * C.SMOKE_DRIFT;
+    item.strength = burn;
+    item.t = 0;
+    this.active.push(item);
+  }
+
+  recycle(s) {
+    s.mesh.visible = false;
+    this.pool.push(s);
+  }
+
+  clear() {
+    this.active.forEach((s) => this.recycle(s));
+    this.active.length = 0;
+    this.timer = 0;
+  }
+}
+
+/* ------------------------------------------------------------
    Orchestration : un seul point d'entrée depuis main.js.
    ------------------------------------------------------------ */
 
@@ -269,7 +363,16 @@ export class Effects {
     this.squash = new Squash();
     this.waves = new Waves(scene);
     this.sparks = new Sparks(scene);
+    this.smoke = new Smoke(scene);
     this.shakeLeft = 0;
+    this.smokeSource = null;
+    this.burn = 0;
+  }
+
+  /** La fumée sort du sommet de la tour : main.js lui dit où il est. */
+  setSmokeSource(box, burn) {
+    this.smokeSource = box;
+    this.burn = burn;
   }
 
   /** Appelé à chaque pose. Renvoie true si la caméra doit trembler. */
@@ -316,12 +419,16 @@ export class Effects {
     this.squash.update(dt);
     this.waves.update(dt);
     this.sparks.update(dt);
+    this.smoke.update(dt, this.smokeSource, this.burn);
   }
 
   clear() {
     this.squash.clear();
     this.waves.clear();
     this.sparks.clear();
+    this.smoke.clear();
     this.shakeLeft = 0;
+    this.smokeSource = null;
+    this.burn = 0;
   }
 }
