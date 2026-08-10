@@ -38,10 +38,12 @@ pose du §3 (squash, ondes, particules), l'audio, l'offline et les paliers.
 
 ## Le décor
 
-Reconstruit d'après une photo du vrai four, en volumes simples : coupole en
-mosaïque dorée à joints noirs, bouche en arche avec les braises au fond, socle
-carrelé de la même faïence, linteau et tablette en pierre, conduit d'extraction,
-rack à bûches, plan de travail, sol carrelé.
+Reconstruit d'après une photo du vrai four et une maquette 3D de la cuisine, en
+volumes simples : coupole en mosaïque cuivre / or / bronze à joints sombres,
+bouche en arche avec les braises au fond, socle cylindrique carrelé de la même
+faïence, bûches rangées dessous, tablette de marbre, conduit d'extraction coudé
+avec ses anneaux, plan de travail inox avec évier, robinet et vitrine de
+préparation, comptoir de service bois et marbre, sol carrelé.
 
 Trois décisions valent d'être connues, parce qu'elles s'écartent du réel :
 
@@ -49,9 +51,15 @@ Trois décisions valent d'être connues, parce qu'elles s'écartent du réel :
   rapetisse avec la distance. Un four à sa taille réelle par rapport à une boîte
   à pizza remplirait l'écran. On triche donc à l'échelle, et le cerveau lit
   « four au fond de la salle ».
-- **Le plan de travail est en pierre grise, pas en marbre blanc.** Un aplat
-  blanc à côté de boîtes blanches leur vole la lecture, et c'est la tour qu'on
-  doit lire en premier.
+- **Les surfaces claires sont assourdies, et le mur derrière le four est
+  sombre.** Un aplat blanc à côté de boîtes blanches leur vole la lecture, et
+  c'est la tour qu'on doit lire en premier. Le panneau de marbre initialement
+  placé derrière le four virait en prime au rose sous la lumière des braises.
+- **Le métal est en `MeshPhongMaterial` avec `specular`, pas en
+  `MeshStandardMaterial` avec `metalness`.** Sans environment map, un matériau
+  métallique n'a rien à réfléchir : il rend sombre et terne, parce qu'un métal
+  n'a pas de couleur diffuse. Le `specular` de Phong, lui, brille avec les
+  lumières de la scène sans rien avoir à charger.
 - **Le conduit d'extraction n'est pas là que pour le décor.** Les UV sphériques
   convergent au pôle de la coupole, ce qui donnait au sommet un aspect de panier
   tressé. Le conduit couvre ce point — et il existe sur la vraie photo.
@@ -155,7 +163,7 @@ Non incluses dans le dépôt (jetables), mais validées sous Chromium en 390×84
 - game over : chute complète, écran de fin à 0,7 s, record écrit, rejeu en un tap ;
 - portrait et paysage : boîte dans le cadre sur toute sa course, y compris avec
   une tour décalée au maximum ;
-- 60 appels de dessin et 6 textures en régime établi, décor compris ;
+- 60 appels de dessin et 7 textures en régime établi, décor compris ;
 - le bouton vibration ne pose pas de boîte, son état persiste, et les quatre
   motifs de vibration partent au bon moment.
 

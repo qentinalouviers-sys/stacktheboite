@@ -141,14 +141,15 @@ export function setAnisotropy(value) {
    ============================================================ */
 
 let mosaicTexture = null;
+let marbleTexture = null;
 let floorTexture = null;
 let blobTexture = null;
 let fireTexture = null;
 
 /**
- * Faïence du four : carreaux dorés, joints noirs, luminosité variée d'un
- * carreau à l'autre. C'est cette variation qui empêche la coupole de lire
- * comme un aplat doré et lui donne son grain de mosaïque.
+ * Faïence du four. Palette cuivre / or / bronze mélangée carreau par carreau,
+ * joints sombres, et un reflet en coin sur chaque carreau : c'est ce triangle
+ * clair qui donne la sensation de faïence vernie plutôt que d'aplat peint.
  */
 export function getMosaicTexture() {
   if (mosaicTexture) return mosaicTexture;
@@ -162,19 +163,62 @@ export function getMosaicTexture() {
   ctx.fillRect(0, 0, size, size);
 
   const step = C.MOSAIC_TILE;
-  const grout = C.MOSAIC_GROUT;
-  const gold = C.MOSAIC_GOLD;
+  const gap = C.MOSAIC_GROUT;
+  const palette = C.MOSAIC_COLORS;
+
   for (let y = 0; y < size; y += step) {
     for (let x = 0; x < size; x += step) {
-      const jitter = 1 + (Math.random() - 0.5) * 2 * C.MOSAIC_JITTER;
-      const l = Math.max(4, Math.min(96, gold.l * jitter));
-      ctx.fillStyle = `hsl(${gold.h} ${gold.s}% ${l}%)`;
-      ctx.fillRect(x + grout / 2, y + grout / 2, step - grout, step - grout);
+      ctx.fillStyle = palette[Math.floor(Math.random() * palette.length)];
+      ctx.fillRect(x + gap, y + gap, step - gap * 2, step - gap * 2);
+
+      ctx.fillStyle = C.MOSAIC_HIGHLIGHT;
+      ctx.beginPath();
+      ctx.moveTo(x + gap, y + gap);
+      ctx.lineTo(x + step - gap, y + gap);
+      ctx.lineTo(x + gap, y + step - gap);
+      ctx.fill();
     }
   }
 
   mosaicTexture = finish(canvas, true);
   return mosaicTexture;
+}
+
+/** Marbre des plans de travail : fond très clair, veines brunes au bézier. */
+export function getMarbleTexture() {
+  if (marbleTexture) return marbleTexture;
+
+  const size = C.MARBLE_TEXTURE_SIZE;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = C.MARBLE_BASE_COLOR;
+  ctx.fillRect(0, 0, size, size);
+
+  ctx.strokeStyle = C.MARBLE_VEIN_COLOR;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  for (let i = 0; i < C.MARBLE_VEINS; i++) {
+    ctx.beginPath();
+    ctx.lineWidth = (Math.random() * 7 + 2) * (size / 1024);
+    let x = Math.random() * size;
+    let y = Math.random() * size;
+    ctx.moveTo(x, y);
+    for (let j = 0; j < 5; j++) {
+      const c1x = x + (Math.random() - 0.5) * size * 0.4;
+      const c1y = y + (Math.random() - 0.5) * size * 0.4;
+      const c2x = x + (Math.random() - 0.5) * size * 0.4;
+      const c2y = y + (Math.random() - 0.5) * size * 0.4;
+      x += (Math.random() - 0.5) * size * 0.5;
+      y += (Math.random() - 0.5) * size * 0.5;
+      ctx.bezierCurveTo(c1x, c1y, c2x, c2y, x, y);
+    }
+    ctx.stroke();
+  }
+
+  marbleTexture = finish(canvas, true);
+  return marbleTexture;
 }
 
 /**

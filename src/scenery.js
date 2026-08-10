@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import * as C from './config.js';
 import {
   getMosaicTexture,
+  getMarbleTexture,
   getFloorTexture,
   getBlobShadowTexture,
   getFireTexture,
@@ -122,22 +123,47 @@ function buildOven(materials) {
   oven.rotation.y = C.OVEN_ROTATION_Y;
   oven.scale.setScalar(C.OVEN_SCALE);
 
-  const base = C.OVEN_BASE_SIZE;
+  const radius = C.OVEN_BASE_RADIUS;
   const baseH = C.OVEN_BASE_HEIGHT;
 
-  // Socle carrelé.
+  // Panneau de marbre en fond : il détache la coupole du dégradé de nuit.
+  const backsplash = new THREE.Mesh(
+    new THREE.BoxGeometry(
+      C.OVEN_BACKSPLASH.width,
+      C.OVEN_BACKSPLASH.height,
+      C.OVEN_BACKSPLASH.depth
+    ),
+    materials.wall
+  );
+  backsplash.position.set(0, C.OVEN_BACKSPLASH.height / 2, -radius - 0.5);
+  oven.add(backsplash);
+
+  // Socle cylindrique carrelé de la même faïence.
   const socle = new THREE.Mesh(
-    new THREE.BoxGeometry(base, baseH, base),
+    new THREE.CylinderGeometry(radius, radius, baseH, 24),
     materials.mosaicBase
   );
   socle.position.y = baseH / 2;
   socle.castShadow = true;
   oven.add(socle);
 
-  // Tablette en pierre entre le socle et la coupole.
+  // Bûches rangées sous le four.
+  const logGeo = new THREE.CylinderGeometry(0.13, 0.13, 1.5, 7);
+  for (let i = 0; i < C.LOG_COUNT; i++) {
+    const log = new THREE.Mesh(logGeo, materials.log);
+    log.rotation.x = Math.PI / 2;
+    log.position.set(
+      -0.5 + (i % 3) * 0.34,
+      0.18 + Math.floor(i / 3) * 0.27,
+      radius * 0.45
+    );
+    oven.add(log);
+  }
+
+  // Tablette de marbre entre le socle et la coupole.
   const slab = new THREE.Mesh(
-    new THREE.BoxGeometry(base + 0.28, 0.16, base + 0.28),
-    materials.stone
+    new THREE.BoxGeometry(radius * 2 + 0.3, 0.16, radius * 2 + 0.3),
+    materials.marble
   );
   slab.position.y = baseH + 0.08;
   slab.castShadow = true;
@@ -155,23 +181,47 @@ function buildOven(materials) {
 
   // Conduit d'extraction au sommet. En prime, il masque le point où les UV
   // sphériques convergent, qui donnait au sommet un aspect de panier tressé.
-  const flue = new THREE.Mesh(
-    new THREE.CylinderGeometry(
-      C.OVEN_FLUE_RADIUS * 0.86,
-      C.OVEN_FLUE_RADIUS,
-      C.OVEN_FLUE_HEIGHT,
-      12
-    ),
-    materials.flue
-  );
-  flue.position.y =
-    baseH + 0.16 + C.OVEN_DOME_RADIUS * C.OVEN_DOME_FLATTEN + C.OVEN_FLUE_HEIGHT * 0.32;
-  flue.castShadow = true;
+  const flue = new THREE.Group();
+  const domeTop = baseH + 0.16 + C.OVEN_DOME_RADIUS * C.OVEN_DOME_FLATTEN;
+  flue.position.y = domeTop - 0.15;
   oven.add(flue);
+
+  const riser = new THREE.Mesh(
+    new THREE.CylinderGeometry(C.OVEN_FLUE_RADIUS, C.OVEN_FLUE_RADIUS, C.OVEN_FLUE_HEIGHT, 14),
+    materials.steel
+  );
+  riser.position.y = C.OVEN_FLUE_HEIGHT / 2;
+  riser.castShadow = true;
+  flue.add(riser);
+
+  const arm = new THREE.Mesh(
+    new THREE.CylinderGeometry(C.OVEN_FLUE_RADIUS, C.OVEN_FLUE_RADIUS, C.OVEN_FLUE_ARM_LENGTH, 14),
+    materials.steel
+  );
+  arm.rotation.z = Math.PI / 2;
+  arm.position.set(-C.OVEN_FLUE_ARM_LENGTH / 2, C.OVEN_FLUE_HEIGHT, 0);
+  arm.castShadow = true;
+  flue.add(arm);
+
+  const ringGeo = new THREE.TorusGeometry(
+    C.OVEN_FLUE_RADIUS + 0.02,
+    C.OVEN_FLUE_RING_RADIUS,
+    8,
+    20
+  );
+  const ringA = new THREE.Mesh(ringGeo, materials.steel);
+  ringA.rotation.x = Math.PI / 2;
+  ringA.position.y = C.OVEN_FLUE_HEIGHT * 0.55;
+  flue.add(ringA);
+
+  const ringB = new THREE.Mesh(ringGeo, materials.steel);
+  ringB.rotation.y = Math.PI / 2;
+  ringB.position.set(-C.OVEN_FLUE_ARM_LENGTH * 0.55, C.OVEN_FLUE_HEIGHT, 0);
+  flue.add(ringB);
 
   // Bloc sombre devant la coupole : c'est le massif qui porte la bouche.
   const front = new THREE.Group();
-  front.position.set(0, baseH + 0.16, C.OVEN_DOME_RADIUS * 0.82);
+  front.position.set(0, baseH + 0.16, radius * 0.86);
   oven.add(front);
 
   const frameW = 1.6;
@@ -240,7 +290,43 @@ function buildRoom(materials) {
   shadow.position.y = 0.005;
   room.add(shadow);
 
-  // Plan de travail en marbre, sur son bloc sombre.
+  // Plan de travail inox avec évier, robinet et vitrine de préparation :
+  // le poste de travail de la cuisine, au fond.
+  const steel = new THREE.Group();
+  steel.position.set(C.STEEL_POSITION.x, 0, C.STEEL_POSITION.z);
+  const block = new THREE.Mesh(
+    new THREE.BoxGeometry(C.STEEL_SIZE.x, C.STEEL_SIZE.y, C.STEEL_SIZE.z),
+    materials.steel
+  );
+  block.position.y = C.STEEL_SIZE.y / 2;
+  block.castShadow = true;
+  steel.add(block);
+
+  const sink = new THREE.Mesh(
+    new THREE.BoxGeometry(0.85, 0.05, 0.6),
+    materials.dark
+  );
+  sink.position.set(-0.75, C.STEEL_SIZE.y + 0.01, 0);
+  steel.add(sink);
+
+  const faucet = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.035, 0.035, 0.42, 8),
+    materials.steel
+  );
+  faucet.position.set(-0.75, C.STEEL_SIZE.y + 0.21, -0.32);
+  steel.add(faucet);
+
+  const glass = new THREE.Mesh(
+    new THREE.BoxGeometry(1.0, 0.36, 0.75),
+    materials.glass
+  );
+  glass.position.set(0.7, C.STEEL_SIZE.y + 0.22, 0);
+  steel.add(glass);
+  room.add(steel);
+
+  // Comptoir de service en bois, plateau de marbre, en avant-plan : il passe
+  // devant la base de la tour, ce qui donne de la profondeur à une scène sans
+  // perspective.
   const counter = new THREE.Group();
   counter.position.set(C.COUNTER_POSITION.x, 0, C.COUNTER_POSITION.z);
   const top = new THREE.Mesh(
@@ -251,29 +337,11 @@ function buildRoom(materials) {
   counter.add(top);
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(C.COUNTER_SIZE.x - 0.3, C.COUNTER_HEIGHT, C.COUNTER_SIZE.z - 0.3),
-    materials.counterBase
+    materials.wood
   );
   body.position.y = C.COUNTER_HEIGHT / 2;
   counter.add(body);
   room.add(counter);
-
-  // Rack à bûches : une silhouette et quelques cylindres, rien de plus.
-  const rack = new THREE.Group();
-  rack.position.set(C.LOG_RACK_POSITION.x, 0, C.LOG_RACK_POSITION.z);
-  const frame = new THREE.Mesh(
-    new THREE.BoxGeometry(2.6, 1.5, 1.0),
-    materials.counterBase
-  );
-  frame.position.y = 0.75;
-  rack.add(frame);
-  const logGeometry = new THREE.CylinderGeometry(0.16, 0.16, 0.95, 7);
-  for (let i = 0; i < C.LOG_COUNT; i++) {
-    const log = new THREE.Mesh(logGeometry, materials.log);
-    log.rotation.x = Math.PI / 2;
-    log.position.set(-0.85 + (i % 3) * 0.42, 1.02 + Math.floor(i / 3) * 0.34, 0.1);
-    rack.add(log);
-  }
-  room.add(rack);
 
   return room;
 }
@@ -344,6 +412,8 @@ export function buildScenery(scene) {
   mosaicBase.repeat.setScalar(C.MOSAIC_REPEAT_BASE);
 
   const floorMap = getFloorTexture();
+  const marbleMap = getMarbleTexture();
+  marbleMap.repeat.setScalar(C.MARBLE_REPEAT);
 
   const materials = {
     // Phong et pas Lambert : la faïence doit accrocher la lumière du feu.
@@ -358,11 +428,23 @@ export function buildScenery(scene) {
       shininess: C.MOSAIC_SHININESS,
     }),
     stone: new THREE.MeshLambertMaterial({ color: C.OVEN_STONE_COLOR }),
-    flue: new THREE.MeshPhongMaterial({
-      color: C.OVEN_FLUE_COLOR,
-      specular: 0x888888,
-      shininess: 30,
+    // Phong et pas Standard/metalness : sans environment map, un matériau
+    // métallique n'a rien à réfléchir et rend sombre et terne. Le specular
+    // de Phong, lui, brille avec les lumières de la scène.
+    steel: new THREE.MeshPhongMaterial({
+      color: C.STEEL_COLOR,
+      specular: C.STEEL_SPECULAR,
+      shininess: C.STEEL_SHININESS,
     }),
+    glass: new THREE.MeshPhongMaterial({
+      color: C.GLASS_COLOR,
+      transparent: true,
+      opacity: C.GLASS_OPACITY,
+      shininess: 100,
+      depthWrite: false,
+    }),
+    wood: new THREE.MeshLambertMaterial({ color: C.COUNTER_WOOD_COLOR }),
+    wall: new THREE.MeshLambertMaterial({ color: C.OVEN_BACKSPLASH_COLOR }),
     ember: new THREE.MeshBasicMaterial({
       color: C.EMBER_COLOR,
       transparent: true,
@@ -382,8 +464,11 @@ export function buildScenery(scene) {
       depthWrite: false,
       opacity: C.TOWER_SHADOW_OPACITY,
     }),
-    marble: new THREE.MeshLambertMaterial({ color: C.COUNTER_MARBLE_COLOR }),
-    counterBase: new THREE.MeshLambertMaterial({ color: C.COUNTER_BASE_COLOR }),
+    marble: new THREE.MeshPhongMaterial({
+      map: marbleMap,
+      specular: 0x4a4a4a,
+      shininess: 36,
+    }),
     log: new THREE.MeshLambertMaterial({ color: C.LOG_COLOR }),
   };
 

@@ -180,16 +180,27 @@ export const OVEN_ROTATION_Y = 0.62; // la bouche tournée vers la caméra
 // On triche donc à l'échelle, et le cerveau lit « four au fond de la salle ».
 export const OVEN_SCALE = 0.62;
 
-export const OVEN_BASE_SIZE = 3.2;
+// Socle cylindrique, comme le vrai four et comme la scène de cuisine fournie.
+export const OVEN_BASE_RADIUS = 1.62;
 export const OVEN_BASE_HEIGHT = 1.25;
 export const OVEN_DOME_RADIUS = 1.62;
-export const OVEN_DOME_FLATTEN = 0.78; // la coupole napolitaine est surbaissée
+export const OVEN_DOME_FLATTEN = 0.60; // la coupole napolitaine est surbaissée
 export const OVEN_MOUTH_WIDTH = 1.25;
 export const OVEN_MOUTH_HEIGHT = 1.05;
-export const OVEN_STONE_COLOR = 0x9d968c; // linteau et tablette en pierre
-export const OVEN_FLUE_COLOR = 0x6e6a66; // conduit d'extraction, acier terni
+export const OVEN_STONE_COLOR = 0x8a837a; // linteau et tablette en pierre
+// Conduit d'extraction : montée verticale, coude, départ horizontal, et les
+// anneaux de jointure. C'est une silhouette très reconnaissable de cuisine pro.
+export const OVEN_FLUE_COLOR = 0xdfe2e4;
 export const OVEN_FLUE_RADIUS = 0.34;
-export const OVEN_FLUE_HEIGHT = 1.5;
+export const OVEN_FLUE_HEIGHT = 1.3;
+export const OVEN_FLUE_ARM_LENGTH = 2.1;
+export const OVEN_FLUE_RING_RADIUS = 0.03;
+
+// Mur derrière le four. En marbre clair il virait au rose sous la lumière du
+// feu et volait la lecture aux boîtes : on garde un mur sombre, qui détache la
+// coupole du fond sans se faire remarquer.
+export const OVEN_BACKSPLASH = { width: 4.4, height: 1.9, depth: 0.16 };
+export const OVEN_BACKSPLASH_COLOR = 0x413733;
 
 /* --- Braises qui montent du four ----------------------------- */
 
@@ -207,16 +218,25 @@ export const OVEN_DARK_COLOR = 0x2b231c; // encadrement de bouche, intérieur
 export const MOSAIC_TEXTURE_SIZE = 512;
 export const MOSAIC_TILE = 32;
 export const MOSAIC_GROUT = 5;
-export const MOSAIC_GROUT_COLOR = '#0b0a09';
-export const MOSAIC_GOLD = { h: 36, s: 42, l: 31 };
-export const MOSAIC_JITTER = 0.14; // variation de luminosité par carreau
+export const MOSAIC_GROUT_COLOR = '#1c1a17';
+// Cuivre, or, bronze, terre : c'est le mélange carreau par carreau qui fait
+// la faïence, un or uni lit comme de la peinture.
+export const MOSAIC_COLORS = [
+  '#b87333',
+  '#d4af37',
+  '#a0522d',
+  '#cd7f32',
+  '#8b4513',
+  '#c98a4b',
+];
+export const MOSAIC_HIGHLIGHT = 'rgba(255, 255, 255, 0.08)';
 export const MOSAIC_SPECULAR = 0xffd98c;
 export const MOSAIC_SHININESS = 64;
 // Volontairement moins de carreaux que dans la réalité : à l'échelle où la
 // coupole est vue, de vrais carreaux de 2 cm partent en bouillie de mipmap et
 // on perd les joints noirs, qui sont tout le caractère du four.
-export const MOSAIC_REPEAT_DOME = { x: 1.6, y: 0.9 };
-export const MOSAIC_REPEAT_BASE = 1.5;
+export const MOSAIC_REPEAT_DOME = { x: 1.0, y: 0.55 };
+export const MOSAIC_REPEAT_BASE = 1.1;
 
 /* --- Le feu -------------------------------------------------- */
 
@@ -243,12 +263,26 @@ export const FLOOR_GROUT = '#191520';
 export const COUNTER_POSITION = { x: 6.0, y: 0, z: 2.5 };
 export const COUNTER_SIZE = { x: 3.8, y: 0.16, z: 1.5 };
 export const COUNTER_HEIGHT = 1.1;
-export const COUNTER_MARBLE_COLOR = 0x8e8880;
-export const COUNTER_BASE_COLOR = 0x2b2730;
+export const COUNTER_WOOD_COLOR = 0xc19a6b; // comptoir de service
 
-export const LOG_RACK_POSITION = { x: -2.6, y: 0, z: -6.2 };
+// Plan de travail inox avec évier, robinet et vitrine de préparation.
+export const STEEL_POSITION = { x: -3.0, y: 0, z: -6.2 };
+export const STEEL_SIZE = { x: 2.6, y: 0.95, z: 1.1 };
+export const STEEL_COLOR = 0x9aa0a6;
+export const STEEL_SPECULAR = 0xffffff;
+export const STEEL_SHININESS = 90;
+export const GLASS_COLOR = 0xaaddff;
+export const GLASS_OPACITY = 0.2;
+
+export const MARBLE_TEXTURE_SIZE = 512;
+export const MARBLE_BASE_COLOR = '#dcd8d2';
+export const MARBLE_VEIN_COLOR = 'rgba(86, 74, 68, 0.26)';
+export const MARBLE_VEINS = 7;
+export const MARBLE_REPEAT = 0.75;
+
+// Les bûches sont rangées sous le four, comme sur la photo.
 export const LOG_COLOR = 0x6b5236;
-export const LOG_COUNT = 6;
+export const LOG_COUNT = 5;
 
 // Fausse ombre douce sous la tour : une DirectionalLight qui suit la caméra
 // projette un pâté qui se détache. Un disque dégradé posé au sol, lui, reste
