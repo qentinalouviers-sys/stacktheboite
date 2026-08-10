@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#1c1410">
+<meta name="description" content="Empilez les boîtes à pizza QENTINA.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="QENTINA STACK">
+<title>QENTINA STACK</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="./icon.svg">
+<link rel="stylesheet" href="styles.css?v=4af5982">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.min.js?v=4af5982"
+  }
+}
+</script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <div id="hud">
+    <div id="score">0</div>
+    <div id="best">MEILLEUR 0</div>
+    <div id="perfect"></div>
+  </div>
+
+  <div id="controls">
+    <button id="sound-toggle" type="button" aria-pressed="false" aria-label="Activer le son">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path class="speaker" d="M4 9.5h3.2L12 5.4v13.2L7.2 14.5H4z"/>
+        <path class="waves" d="M15.5 9.4a4 4 0 0 1 0 5.2M18.2 7.2a7.6 7.6 0 0 1 0 9.6"/>
+        <path class="cross" d="M15.5 9.6l5 4.8M20.5 9.6l-5 4.8"/>
+      </svg>
+    </button>
+    <button id="haptics-toggle" type="button" aria-pressed="true" aria-label="Vibration activée">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect class="phone" x="8.5" y="4" width="7" height="16" rx="1.6"/>
+        <path class="waves" d="M5 9v6M2.6 10.5v3M19 9v6M21.4 10.5v3"/>
+        <path class="cross" d="M4 4l16 16"/>
+      </svg>
+    </button>
+    <span id="sound-hint" class="hint">Son coupé</span>
+  </div>
+
+  <div id="start" class="overlay">
+    <p class="pulse">TAPEZ POUR EMPILER</p>
+  </div>
+
+  <!-- Écran de fin -->
+  <div id="end" class="overlay hidden">
+    <div class="card">
+      <p id="end-record" class="record hidden">NOUVEAU RECORD</p>
+      <p class="label">BOÎTES EMPILÉES</p>
+      <p id="end-score">0</p>
+      <p id="end-best" class="label">MEILLEUR 0</p>
+
+      <div id="tier" class="tier hidden">
+        <div class="tier-head">
+          <span id="tier-label"></span>
+          <span id="tier-count"></span>
+        </div>
+        <div class="bar"><i id="tier-bar"></i></div>
+      </div>
+
+      <div id="reward" class="reward hidden">
+        <p class="reward-won">🎁 TU AS GAGNÉ</p>
+        <p id="reward-label" class="reward-label"></p>
+        <p id="reward-code" class="reward-code"></p>
+        <p id="reward-note" class="reward-note">À montrer en caisse</p>
+      </div>
+
+      <div id="badges" class="badges"></div>
+
+      <div class="actions">
+        <button id="btn-save" class="btn primary" type="button">Sauvegarder mon score</button>
+        <button id="btn-share" class="btn" type="button">Partager</button>
+      </div>
+      <p id="end-status" class="end-status"></p>
+
+      <p class="pulse small">TAPEZ POUR REJOUER</p>
+    </div>
+  </div>
+
+  <!-- Feuille de compte -->
+  <div id="sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-inner">
+      <div class="grabber" aria-hidden="true"></div>
+      <button id="sheet-close" class="sheet-close" type="button" aria-label="Fermer">✕</button>
+
+      <h2 id="sheet-title">Sauvegarde ton score</h2>
+      <p class="sheet-sub">Un pseudo, un e-mail, c'est tout. Jouer restera toujours possible sans profil.</p>
+
+      <div class="tabs" role="tablist">
+        <button id="tab-signup" class="tab is-active" type="button" role="tab" aria-selected="true">Créer un profil</button>
+        <button id="tab-signin" class="tab" type="button" role="tab" aria-selected="false">J'en ai déjà un</button>
+      </div>
+
+      <form id="account-form" novalidate>
+        <label class="field" id="field-pseudo">
+          <span class="field-label">Pseudo</span>
+          <input id="in-pseudo" type="text" name="pseudo" autocomplete="nickname"
+                 autocapitalize="words" maxlength="20" placeholder="Ton pseudo"
+                 enterkeyhint="next">
+          <em class="err" id="err-pseudo"></em>
+        </label>
+
+        <label class="field">
+          <span class="field-label">E-mail</span>
+          <input id="in-email" type="email" name="email" autocomplete="email"
+                 inputmode="email" autocapitalize="off" autocorrect="off"
+                 placeholder="toi@exemple.fr" enterkeyhint="done">
+          <em class="err" id="err-email"></em>
+        </label>
+
+        <div class="consents" id="consents">
+          <label class="check">
+            <input id="in-terms" type="checkbox">
+            <span>
+              J'ai lu et j'accepte les
+              <a id="legal-link" href="./legal.html" target="_blank" rel="noopener">conditions générales et la politique de confidentialité</a>.
+            </span>
+          </label>
+          <em class="err" id="err-terms"></em>
+
+          <label class="check">
+            <input id="in-marketing" type="checkbox">
+            <span id="marketing-text">
+              J'autorise QENTINA à utiliser mon adresse e-mail pour m'envoyer ses
+              offres et actualités.
+            </span>
+          </label>
+          <em class="err" id="err-marketing"></em>
+        </div>
+
+        <p class="notice">
+          Conservation : 3 ans après le dernier contact. Aucun cookie, aucun
+          traceur, aucune revente. Désinscription en un clic dans chaque e-mail.
+        </p>
+
+        <button id="btn-submit" class="btn primary wide" type="submit">Créer mon profil</button>
+        <p id="form-status" class="form-status"></p>
+      </form>
+
+      <button id="btn-forget" class="link-btn hidden" type="button">
+        Effacer définitivement mes données
+      </button>
+    </div>
+  </div>
+
+  <div id="debug"></div>
+
+  <script type="module" src="src/main.js?v=4af5982"></script>
+</body>
+</html>

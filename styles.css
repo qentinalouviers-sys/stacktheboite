@@ -1,0 +1,746 @@
+/* ============================================================
+   QENTINA STACK — HUD et écrans. Le rendu 3D est dans le canvas,
+   qui est transparent : le fond dégradé est ici, piloté par
+   scenery.js via --bg-top / --bg-bottom.
+   ============================================================ */
+
+:root {
+  --bg-top: hsl(20 38% 7%);
+  --bg-bottom: hsl(27 52% 24%);
+  --glow: hsl(24 90% 52% / 0.5);
+  --ink: #f6f2ea;
+  --gold: #e8b44a;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Helvetica, Arial, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+  /* Deux couches : la lueur du four en bas de cadre, et le dégradé qui
+     descend du ciel nocturne vers la salle. Les trois couleurs sont
+     interpolées avec la hauteur atteinte, par scenery.js. */
+  background:
+    radial-gradient(125% 52% at 50% 106%, var(--glow), transparent 72%),
+    linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));
+  transition: background 600ms linear;
+  touch-action: none;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  font-family: var(--font);
+  color: var(--ink);
+}
+
+#scene {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* --- HUD ---------------------------------------------------- */
+
+/* Pendant l'écran de fin, le score du HUD ferait doublon avec celui de la
+   carte, en plus flou. On l'escamote. */
+body.is-over #hud,
+body.is-over #controls {
+  opacity: 0;
+  transition: opacity 220ms ease;
+  pointer-events: none;
+}
+
+#hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  padding: calc(env(safe-area-inset-top, 0px) + 5vh) 16px 0;
+  text-align: center;
+}
+
+#score {
+  /* clamp() plutôt qu'une taille fixe : lisible sur un petit Android comme
+     sur une tablette, sans media query. */
+  font-size: clamp(46px, 15vw, 96px);
+  font-weight: 200;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.5);
+}
+
+#best {
+  margin-top: 10px;
+  font-size: clamp(10px, 2.8vw, 12px);
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  opacity: 0.42;
+}
+
+#perfect {
+  margin-top: clamp(16px, 4vh, 32px);
+  font-size: clamp(13px, 3.8vw, 17px);
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  color: var(--gold);
+  opacity: 0;
+}
+
+#perfect.pop {
+  animation: perfect-pop 900ms ease-out forwards;
+}
+
+@keyframes perfect-pop {
+  0% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+  22% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* --- Bouton vibration --------------------------------------- */
+
+#controls {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  right: calc(env(safe-area-inset-right, 0px) + 12px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 5;
+}
+
+/* Pastille d'invitation : le son démarre coupé, encore faut-il que le
+   joueur sache qu'il existe. Elle disparaît dès qu'on y touche. */
+.hint {
+  order: -1;
+  padding: 6px 11px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.09);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  opacity: 0.75;
+  animation: hint-in 500ms ease-out both;
+  pointer-events: none;
+}
+
+.hint.hidden { display: none; }
+
+@keyframes hint-in {
+  from { opacity: 0; transform: translateX(6px); }
+  to { opacity: 0.75; transform: none; }
+}
+
+#sound-toggle,
+#haptics-toggle {
+  position: relative;
+  width: 44px; /* cible tactile minimale confortable */
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#haptics-toggle[hidden],
+#sound-toggle[hidden] {
+  display: none;
+}
+
+#sound-toggle svg,
+#haptics-toggle svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  opacity: 0.72;
+}
+
+#sound-toggle .cross,
+#haptics-toggle .cross {
+  opacity: 0;
+}
+
+#sound-toggle.off svg,
+#haptics-toggle.off svg {
+  opacity: 0.4;
+}
+
+#sound-toggle.off .waves,
+#haptics-toggle.off .waves {
+  opacity: 0;
+}
+
+#sound-toggle.off .cross,
+#haptics-toggle.off .cross {
+  opacity: 1;
+}
+
+#sound-toggle .speaker {
+  fill: currentColor;
+  stroke-linejoin: round;
+}
+
+/* --- Écrans ------------------------------------------------- */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+  padding: 0 24px calc(env(safe-area-inset-bottom, 0px));
+  text-align: center;
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+#start {
+  justify-content: flex-end;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12vh);
+}
+
+#end {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(12, 8, 6, 0.68) 0%,
+    rgba(12, 8, 6, 0.93) 100%
+  );
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  justify-content: flex-start;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 4vh);
+}
+
+#end .card {
+  width: 100%;
+  max-width: 24rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: auto 0;
+}
+
+#end-score {
+  font-size: clamp(58px, 20vw, 112px);
+  font-weight: 200;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Palier de récompense ----------------------------------- */
+
+.tier {
+  width: 100%;
+  margin-top: 18px;
+}
+
+.tier.hidden,
+.reward.hidden,
+.record.hidden,
+#btn-forget.hidden {
+  display: none;
+}
+
+.tier-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: clamp(10px, 2.8vw, 12px);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  opacity: 0.55;
+  margin-bottom: 7px;
+}
+
+.bar {
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #d08a2c, var(--gold));
+  transition: width 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reward {
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(232, 180, 74, 0.12);
+  border: 1px solid rgba(232, 180, 74, 0.34);
+  text-align: center;
+}
+
+.reward-won {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  opacity: 0.55;
+  margin-bottom: 6px;
+}
+
+.reward-label {
+  font-size: clamp(13px, 3.6vw, 16px);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+}
+
+.reward-code {
+  margin-top: 8px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: clamp(20px, 6vw, 26px);
+  letter-spacing: 0.12em;
+  color: var(--ink);
+}
+
+/* Verrouillé : le code affiché n'est qu'un gabarit, le vrai n'existe pas
+   encore. On le floute pour qu'on voie qu'il y a quelque chose à récupérer. */
+.reward.is-locked .reward-code {
+  filter: blur(6px);
+  opacity: 0.75;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.reward.is-locked .reward-note {
+  color: var(--gold);
+  opacity: 0.9;
+}
+
+.reward.is-revealing .reward-code {
+  animation: code-reveal 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes code-reveal {
+  0% { filter: blur(8px); opacity: 0; transform: scale(0.94); }
+  100% { filter: blur(0); opacity: 1; transform: none; }
+}
+
+
+.reward-note {
+  margin-top: 4px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  opacity: 0.5;
+}
+
+/* --- Badges -------------------------------------------------- */
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  opacity: 0.42;
+}
+
+.badge.is-earned {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.badge.is-new {
+  background: rgba(232, 180, 74, 0.2);
+  border: 1px solid rgba(232, 180, 74, 0.5);
+  animation: badge-pop 520ms cubic-bezier(0.22, 1.4, 0.4, 1);
+}
+
+@keyframes badge-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.badge .emoji { font-size: 14px; line-height: 1; }
+
+/* --- Boutons ------------------------------------------------- */
+
+.actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin-top: 22px;
+}
+
+.btn {
+  flex: 1;
+  min-height: 48px; /* cible tactile confortable */
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink);
+  font: inherit;
+  font-size: clamp(13px, 3.6vw, 15px);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms ease, background 180ms ease;
+}
+
+.btn:active { transform: scale(0.97); }
+
+.btn.primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #17120e;
+}
+
+.btn.wide { width: 100%; flex: none; }
+
+/* Le bouton qui déverrouille le cadeau se distingue du reste. Déclaré APRÈS
+   .btn.primary : à spécificité égale, c'est la dernière règle qui gagne. */
+.btn.is-reward {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #1d1206;
+}
+
+.btn[disabled] { opacity: 0.5; cursor: default; }
+
+.end-status {
+  min-height: 1.2em;
+  margin-top: 10px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  text-align: center;
+}
+
+.label {
+  font-size: clamp(10px, 2.8vw, 12px);
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  opacity: 0.5;
+}
+
+.record {
+  font-size: clamp(11px, 3.2vw, 14px);
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  color: var(--gold);
+}
+
+.record.hidden {
+  display: none;
+}
+
+.pulse {
+  font-size: clamp(13px, 3.8vw, 16px);
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.pulse.small {
+  margin-top: clamp(20px, 5vh, 36px);
+  font-size: clamp(11px, 3.2vw, 13px);
+  opacity: 0.75;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+    opacity: 0.85;
+  }
+  body {
+    transition: none;
+  }
+}
+
+/* --- Debug (?debug=1) --------------------------------------- */
+
+#debug {
+  position: absolute;
+  left: calc(env(safe-area-inset-left, 0px) + 8px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+  font-size: 10px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  letter-spacing: 0.04em;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ============================================================
+   Feuille de compte : pseudo, e-mail, consentements.
+   ============================================================ */
+
+.sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(8, 6, 10, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+
+.sheet.hidden { display: none; }
+
+.sheet-inner {
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
+  max-height: 92vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: #1b1620;
+  border-radius: 26px 26px 0 0;
+  padding: 12px 22px calc(env(safe-area-inset-bottom, 0px) + 26px);
+  box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.6);
+  animation: sheet-up 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (min-width: 30rem) {
+  .sheet { align-items: center; }
+  .sheet-inner { border-radius: 26px; }
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(6%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.grabber {
+  width: 38px;
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.22);
+  margin: 0 auto 14px;
+}
+
+.sheet-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#sheet-title {
+  font-size: clamp(19px, 5.4vw, 23px);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.sheet-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0.6;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin: 18px 0 6px;
+  padding: 4px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tab {
+  flex: 1;
+  min-height: 38px;
+  border: 0;
+  border-radius: 99px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.55;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tab.is-active {
+  background: rgba(255, 255, 255, 0.12);
+  opacity: 1;
+}
+
+.field { display: block; margin-top: 16px; }
+
+.field.hidden { display: none; }
+
+.field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  margin-bottom: 7px;
+}
+
+.field input[type='text'],
+.field input[type='email'] {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 15px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font: inherit;
+  /* 16px minimum : en dessous, iOS zoome tout seul au focus. */
+  font-size: 16px;
+}
+
+.field input::placeholder { color: rgba(246, 242, 234, 0.3); }
+
+.field input:focus {
+  outline: none;
+  border-color: rgba(232, 180, 74, 0.7);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.field.is-invalid input { border-color: #e07a5f; }
+
+.err {
+  display: none;
+  margin-top: 6px;
+  font-size: 12px;
+  font-style: normal;
+  color: #e79880;
+}
+
+.err.is-shown { display: block; }
+
+.consents { margin-top: 20px; display: flex; flex-direction: column; gap: 12px; }
+
+.consents.hidden { display: none; }
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+.check input[type='checkbox'] {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  accent-color: var(--gold);
+}
+
+.check a { color: var(--gold); }
+
+.notice {
+  margin-top: 16px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  opacity: 0.45;
+}
+
+#btn-submit { margin-top: 18px; }
+
+.form-status {
+  min-height: 1.2em;
+  margin-top: 12px;
+  font-size: 12.5px;
+  text-align: center;
+  color: var(--gold);
+}
+
+.link-btn {
+  display: block;
+  margin: 18px auto 0;
+  border: 0;
+  background: none;
+  color: rgba(246, 242, 234, 0.45);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
