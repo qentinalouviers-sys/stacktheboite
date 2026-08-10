@@ -27,14 +27,14 @@ et exposer `window.__qentina` (jeu, renderer, scène) dans la console.
 | Étape | Contenu | État |
 |---|---|---|
 | 1 | Mécanique + découpe + chute + score | ✅ |
-| 2 | Squash & stretch, ondes, particules, tremblement, effets perfect | à faire |
+| 2 | Squash & stretch, ondes, particules, tremblement, effets perfect | ✅ |
 | 3 | Boîte à pizza QENTINA, four, salle, fond dégradé | ✅ |
 | 4 | Haptique, manifeste PWA | ✅ — audio, offline et paliers à faire |
 
-Fait : la mécanique complète, la boîte à pizza blanche avec QENTINA imprimé sur
-les tranches, le four napolitain et sa salle, le fond qui passe de l'intérieur
-chaud au ciel nocturne, la vibration, le manifeste PWA. Manquent les effets de
-pose du §3 (squash, ondes, particules), l'audio, l'offline et les paliers.
+Fait : la mécanique complète, les effets de pose, la boîte à pizza blanche avec
+QENTINA imprimé sur les tranches, le four napolitain et sa salle, le fond qui
+passe de l'intérieur chaud au ciel nocturne, la vibration, le manifeste PWA.
+Manquent l'audio, le fonctionnement hors ligne et les paliers de récompense.
 
 ## Le décor
 
@@ -78,6 +78,7 @@ src/
   config.js         TOUTES les constantes de tuning
   game.js           machine à états + règles, zéro code de rendu
   boxes.js          meshes des boîtes, tour visible, pool de fragments
+  effects.js        écrasement, ondes, particules, tremblement de caméra
   main.js           scène, caméra, boucle de rendu, entrées
   textures.js       atlas carton QENTINA généré au canvas
   scenery.js        fond dégradé et couleur de lumière selon la hauteur
@@ -87,7 +88,42 @@ src/
 manifest.webmanifest, icon.svg
 ```
 
-`audio.js` arrivera avec l'étape 4.
+`audio.js` arrivera avec l'étape 4. `effects.js` est un ajout à l'arborescence
+prévue : ces effets ne sont ni des boîtes ni du décor, et `boxes.js` porte déjà
+la découpe, la tour et les fragments.
+
+## Les effets de pose
+
+Deux règles tenues partout : aucun `setTimeout`, tout avance avec le delta de la
+boucle de rendu ; et rien ne bloque l'entrée, on peut poser la boîte suivante
+alors que l'onde précédente n'est pas finie.
+
+- **Écrasement** en deux phases explicites — montée en ease-out jusqu'à
+  `1 + SQUASH_OVERSHOOT`, retour en smoothstep jusqu'à 1 — plutôt qu'une
+  élastique paramétrique. Le dépassement vaut donc exactement les 6 % demandés
+  au lieu de dépendre d'une constante magique d'easing. Le dessous de la boîte
+  reste collé à celle du dessous pendant tout l'écrasement.
+- **Onde** au niveau de la boîte, blanc cassé à la pose, dorée et plus large au
+  perfect, plus intense encore à partir de cinq perfects d'affilée.
+- **Particules dorées** au perfect, 8 à 14 par pose, éjectées à
+  l'horizontale, gravité `-18`, extinction en 600 ms.
+- **Tremblement de caméra** à partir de cinq perfects : la caméra et sa cible
+  sont décalées du même vecteur, donc la vue se translate au lieu de pivoter.
+- **Flash du four** ×1,5 pendant 120 ms au perfect.
+
+Tout est en pool, plafonds compris : aucune allocation de mesh en cours de
+partie une fois le régime établi.
+
+Deux écarts sur ce point :
+
+- **L'onde naît au bord de la boîte, pas à un rayon nul.** Elle apparaît sur le
+  dessus de la boîte posée : une onde blanc cassé sur un carton blanc, à
+  l'intérieur de l'empreinte de la boîte, est strictement invisible. Partir de
+  zéro perdait la moitié de l'animation.
+- **Le nombre de particules simultanées est plafonné.** Quatre perfects
+  enchaînés en faisaient coexister 69, soit autant d'appels de dessin en plus,
+  et le pool débordait donc on réallouait en pleine partie. Au plafond, les plus
+  anciennes sont recyclées.
 
 ## Le texte QENTINA et le rétrécissement des boîtes
 
@@ -163,7 +199,11 @@ Non incluses dans le dépôt (jetables), mais validées sous Chromium en 390×84
 - game over : chute complète, écran de fin à 0,7 s, record écrit, rejeu en un tap ;
 - portrait et paysage : boîte dans le cadre sur toute sa course, y compris avec
   une tour décalée au maximum ;
-- 60 appels de dessin et 7 textures en régime établi, décor compris ;
+- 60 appels de dessin en régime établi et ~118 au pic d'une série de perfects,
+  7 textures, décor compris ;
+- courbes des effets vérifiées pas à pas : l'écrasement culmine à 1,06 puis
+  revient exactement à 1, le dessous de la boîte ne bouge pas d'un flottant,
+  l'onde s'éteint pile à sa durée, le tremblement dure exactement 150 ms ;
 - le bouton vibration ne pose pas de boîte, son état persiste, et les quatre
   motifs de vibration partent au bon moment.
 
@@ -176,8 +216,10 @@ C'est le feel qui est en jeu, pas l'habillage.
 2. Le cadrage : les boîtes sont-elles à la bonne taille à l'écran ?
 3. QENTINA sur les tranches : bien lisible, y compris sur les boîtes étroites ?
 4. La vibration à chaque pose (Android uniquement) : bon dosage ?
-5. La fenêtre perfect à `0.12` : atteignable au doigt ?
-6. Aucun scroll, aucun zoom, aucun rebond élastique.
+5. Les effets de pose : l'écrasement se voit-il ? l'onde ? le tremblement à
+   partir de cinq perfects est-il perceptible, ou faut-il monter
+   `SHAKE_AMPLITUDE` au-delà de `0.04` ?
+6. La fenêtre perfect à `0.12` : atteignable au doigt ?
+7. Aucun scroll, aucun zoom, aucun rebond élastique.
 
-Les effets visuels de pose (squash, ondes, particules, tremblement) ne sont
-volontairement pas là : ils arrivent à l'étape 2.
+Il reste l'audio, le fonctionnement hors ligne et les paliers de récompense.

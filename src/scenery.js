@@ -20,6 +20,16 @@ import {
 const root = document.documentElement;
 let lastLevel = -1;
 
+/** Orientation face caméra : la direction de vue ne change jamais. */
+const BILLBOARD = new THREE.Quaternion().setFromUnitVectors(
+  new THREE.Vector3(0, 0, 1),
+  new THREE.Vector3(
+    C.CAMERA_OFFSET_X,
+    C.CAMERA_OFFSET_Y,
+    C.CAMERA_OFFSET_Z
+  ).normalize()
+);
+
 function mix(a, b, t) {
   return a + (b - a) * t;
 }
@@ -355,14 +365,16 @@ function buildEmbers(materials, parent) {
   const group = new THREE.Group();
   // Origine : au-dessus de la bouche, d'où la chaleur sort.
   group.position.set(0, C.OVEN_BASE_HEIGHT + 1.0, C.OVEN_DOME_RADIUS * 0.7);
-  // On oriente les quads face caméra une fois pour toutes.
-  group.rotation.y = -C.OVEN_ROTATION_Y + Math.PI / 4;
+  // Le groupe reste aligné sur les axes du monde : c'est dans son repère que
+  // les braises montent. L'orientation face caméra va sur chaque quad, sinon
+  // l'axe vertical local part de travers et les braises montent en biais.
   parent.add(group);
 
   const geometry = new THREE.PlaneGeometry(C.EMBER_SIZE, C.EMBER_SIZE);
   const items = [];
   for (let i = 0; i < C.EMBER_COUNT; i++) {
     const mesh = new THREE.Mesh(geometry, materials.ember.clone());
+    mesh.quaternion.copy(BILLBOARD);
     group.add(mesh);
     items.push({ mesh, life: 0, span: 1, vy: 1, vx: 0 });
   }

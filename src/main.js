@@ -7,6 +7,7 @@ import * as C from './config.js';
 import { Game, State } from './game.js';
 import { Stack, MovingBox, Fragments } from './boxes.js';
 import { getAtlas, setAnisotropy } from './textures.js';
+import { Effects } from './effects.js';
 import * as Scenery from './scenery.js';
 import * as Haptics from './haptics.js';
 import * as UI from './ui.js';
@@ -66,6 +67,7 @@ const scenery = Scenery.buildScenery(scene);
 const stack = new Stack(scene);
 const movingBox = new MovingBox(scene);
 const fragments = new Fragments(scene);
+const effects = new Effects(scene);
 
 getAtlas();
 setAnisotropy(renderer.capabilities.getMaxAnisotropy());
@@ -90,6 +92,7 @@ const game = new Game({
   onReset(baseBox) {
     stack.clear();
     fragments.clear();
+    effects.clear();
     stack.add(baseBox, 0);
     viewScale = 1;
     camera.zoom = 1;
@@ -111,9 +114,10 @@ const game = new Game({
   },
 
   onPlace(placed, fragment, perfect, streak, level) {
-    stack.add(placed, level);
+    const mesh = stack.add(placed, level);
     movingBox.hide();
     if (fragment) fragments.spawn(fragment, level);
+    effects.onPlace(mesh, placed, perfect, streak);
 
     if (perfect) {
       UI.showPerfect(streak);
@@ -198,6 +202,7 @@ function frame(now) {
 
   game.update(dt);
   scenery.update(dt);
+  effects.update(dt);
   if (game.moving) movingBox.sync(game.moving);
   fragments.update(dt, camY);
   updateCamera(dt);
@@ -221,8 +226,16 @@ function updateCamera(dt) {
     camY += (targetY - camY) * (1 - Math.exp(-C.CAMERA_LERP * dt));
   }
 
-  camera.position.set(C.CAMERA_OFFSET_X, camY + C.CAMERA_OFFSET_Y, C.CAMERA_OFFSET_Z);
-  camera.lookAt(0, camY, 0);
+  // Le tremblement décale la caméra ET sa cible du même vecteur : la vue se
+  // translate, elle ne pivote pas.
+  const sx = effects.shakeOffset();
+  const sy = effects.shakeOffset();
+  camera.position.set(
+    C.CAMERA_OFFSET_X + sx,
+    camY + C.CAMERA_OFFSET_Y + sy,
+    C.CAMERA_OFFSET_Z
+  );
+  camera.lookAt(sx, camY + sy, 0);
 
   // Dézoom de fin de partie, révèle la tour entière.
   const wanted = game.state === State.FALLING || game.state === State.OVER
@@ -256,7 +269,7 @@ function reportDebug() {
 
 // Exposé uniquement avec ?debug=1, pour l'inspection et les tests automatisés.
 if (DEBUG) {
-  window.__qentina = { game, renderer, scene, camera, stack, fragments };
+  window.__qentina = { game, renderer, scene, camera, stack, fragments, effects };
 }
 
 Scenery.reset();

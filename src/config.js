@@ -290,6 +290,59 @@ export const LOG_COUNT = 5;
 export const TOWER_SHADOW_SIZE = 5.4;
 export const TOWER_SHADOW_OPACITY = 0.5;
 
+/* --- Effets de pose (§3) ------------------------------------ */
+
+// Écrasement de la boîte posée. Deux phases explicites plutôt qu'une élastique
+// paramétrique : montée en ease-out jusqu'à 1 + SQUASH_OVERSHOOT, puis retour
+// en smoothstep jusqu'à 1. Le dépassement vaut donc exactement la valeur
+// demandée, au lieu de dépendre d'une constante magique d'easing.
+export const SQUASH_SCALE = 0.72;
+export const SQUASH_DURATION = 0.18;
+export const SQUASH_OVERSHOOT = 0.06;
+export const SQUASH_PEAK_AT = 0.55; // part de la durée passée à monter
+
+// Onde au sol. Le rayon de départ suit la taille de la boîte posée, donc une
+// petite boîte fait une petite onde : le feedback reste proportionné.
+export const WAVE_SEGMENTS = 44;
+export const WAVE_INNER_RATIO = 0.86; // anneau fin
+export const WAVE_POOL_MAX = 8;
+// La spec fait naître l'onde à 0. Mais elle naît sur le dessus de la boîte
+// posée, et une onde blanc cassé sur un carton blanc, à l'intérieur de
+// l'empreinte de la boîte, est strictement invisible : la moitié de
+// l'animation était perdue. Elle démarre donc au bord de la boîte.
+export const WAVE_START_SCALE = 0.85;
+export const WAVE_DURATION = 0.32;
+export const WAVE_MAX_SCALE = 2.5;
+export const WAVE_OPACITY = 0.5;
+export const WAVE_COLOR = 0xf4f1ea;
+
+export const WAVE_PERFECT_DURATION = 0.26;
+export const WAVE_PERFECT_MAX_SCALE = 3.2;
+export const WAVE_PERFECT_OPACITY = 0.62;
+export const WAVE_PERFECT_COLOR = 0xe8b44a;
+export const WAVE_STREAK_OPACITY = 0.82; // à partir de PERFECT_STREAK_INTENSE
+export const WAVE_STREAK_MAX_SCALE = 3.8;
+
+// Particules dorées du perfect.
+export const SPARK_COUNT_MIN = 8;
+export const SPARK_COUNT_MAX = 14;
+// Plafond du nombre de particules simultanées. Sans lui, quatre perfects
+// enchaînés en faisaient coexister 69, soit 69 appels de dessin de plus, et
+// le pool débordait donc on réallouait en pleine partie. Au plafond, les plus
+// anciennes sont recyclées : le pool se remplit une fois et ne bouge plus.
+export const SPARK_MAX = 26;
+export const SPARK_SIZE = 0.11;
+export const SPARK_SPEED_MIN = 2.2;
+export const SPARK_SPEED_MAX = 4.4;
+export const SPARK_RISE = 1.7;
+export const SPARK_GRAVITY = -18;
+export const SPARK_DURATION = 0.6;
+export const SPARK_COLOR = 0xffd070;
+
+// Tremblement de caméra à partir de PERFECT_STREAK_INTENSE perfects d'affilée.
+export const SHAKE_AMPLITUDE = 0.04;
+export const SHAKE_DURATION = 0.15;
+
 /* --- Haptique (§6) ------------------------------------------ */
 
 export const HAPTIC_PLACE = 10;
