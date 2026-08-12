@@ -441,19 +441,52 @@ if (DEBUG) {
 
 /* --- Hors ligne --------------------------------------------- */
 
+// On est arrivés jusqu'ici : tous les modules sont chargés, le jeu tourne.
+// Le message d'échec de démarrage posé dans index.html n'a plus lieu d'être.
+clearTimeout(window.__bootWatchdog);
+
+// Le jeu est entièrement local : rien, dans une partie, ne dépend du réseau.
+// Reste à le faire savoir, sinon une coupure passe pour une panne.
+function showNetworkState() {
+  UI.setNetworkState(navigator.onLine ? '' : 'HORS LIGNE — LE JEU CONTINUE');
+}
+window.addEventListener('online', showNetworkState);
+window.addEventListener('offline', showNetworkState);
+showNetworkState();
+
 // Enregistré après le chargement pour ne pas disputer la bande passante au
 // premier rendu : le but est de jouer vite, pas d'être prêt hors ligne vite.
 if ('serviceWorker' in navigator) {
+  // Le worker prévient quand son cache est réellement rempli. C'est le seul
+  // moment où la promesse « jouable hors ligne » est vraie, donc le seul où
+  // on a le droit de l'annoncer.
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type === 'offline-ready' && navigator.onLine) {
+      UI.flashNetwork('JOUABLE HORS LIGNE');
+    }
+  });
+
   window.addEventListener('load', async () => {
     try {
       const registration = await navigator.serviceWorker.register('./sw.js');
+
+      // On demande explicitement la vérification de mise à jour. Le navigateur
+      // la fait bien de lui-même, mais quand ça lui chante : sans cet appel,
+      // une nouvelle version peut attendre plusieurs visites avant d'être
+      // installée. L'installation étant atomique, la déclencher tôt ne risque
+      // rien — au pire elle échoue et la version en place continue de servir.
+      if (navigator.onLine) registration.update().catch(() => {});
+
       const worker = registration.active || (await navigator.serviceWorker.ready).active;
       if (!worker) return;
 
-      // On liste ce que la page vient réellement de charger et on le confie au
-      // worker : c'est ce qui rend le jeu jouable hors ligne dès ce premier
-      // chargement, sans que le worker ait à connaître les empreintes de
-      // version collées dans les URL au déploiement.
+      // Le worker se remplit tout seul à l'installation. Mais une entrée peut
+      // avoir été évincée depuis, et il ne réinstalle pas tant que sw.js n'a
+      // pas changé : on lui demande de vérifier pendant qu'on a du réseau.
+      if (navigator.onLine) worker.postMessage({ type: 'verify' });
+
+      // Et on lui confie ce que la page vient réellement de charger, au cas où
+      // un fichier aurait échappé à sa liste.
       const urls = performance
         .getEntriesByType('resource')
         .map((entry) => entry.name)

@@ -22,6 +22,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Le service worker met en cache une liste de modules qu'il porte en
+      # dur. Un fichier ajouté dans src/ sans être ajouté à cette liste, et
+      # l'installation du cache échoue : plus de hors-ligne du tout. Autant
+      # le découvrir ici que sur le téléphone d'un client.
+      - name: Vérifie que le service worker connaît tous les modules
+        run: |
+          reel=$(ls src/*.js | xargs -n1 basename | sed 's/\.js$//' | sort)
+          liste=$(sed -n '/^const MODULES = \[/,/^];/p' sw.js \
+                  | grep -o "'[a-z]*'" | tr -d "'" | sort)
+          if [ "$reel" != "$liste" ]; then
+            echo "::error::La liste MODULES de sw.js ne correspond plus à src/."
+            diff <(echo "$reel") <(echo "$liste") || true
+            exit 1
+          fi
+          echo "Service worker à jour : $(echo "$reel" | wc -l) modules."
+
       # On ne publie que ce qui sert au jeu : ni README, ni workflow.
       # Le .nojekyll est indispensable : Jekyll exclut vendor/ par défaut,
       # ce qui supprimerait Three.js du site servi.

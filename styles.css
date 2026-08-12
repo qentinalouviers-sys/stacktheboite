@@ -158,6 +158,53 @@ body.is-over #controls {
   to { opacity: 0.75; transform: none; }
 }
 
+/* --- Échec de démarrage -------------------------------------- */
+
+#boot-error {
+  background: rgba(12, 8, 6, 0.82);
+  pointer-events: auto;
+  z-index: 20;
+}
+
+.boot-text {
+  margin: 10px 0 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  opacity: 0.85;
+}
+
+/* --- Pastille réseau ---------------------------------------- */
+
+/* Le jeu est entièrement jouable sans réseau. Encore faut-il le dire :
+   sans un mot, une coupure ressemble à une panne. En bas de cadre, loin
+   du score et des boutons, et jamais cliquable. */
+.net {
+  position: absolute;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  padding: 7px 14px;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.42);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  /* Posé dans la règle et pas seulement dans l'animation : si le joueur a
+     demandé moins d'animations, la pastille doit rester centrée. */
+  transform: translateX(-50%);
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: 6;
+  animation: net-in 420ms ease-out both;
+}
+
+.net.hidden { display: none; }
+
+@keyframes net-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 0.8; transform: translate(-50%, 0); }
+}
+
 #sound-toggle,
 #haptics-toggle {
   position: relative;
@@ -516,6 +563,9 @@ body.is-over #controls {
   .pulse {
     animation: none;
     opacity: 0.85;
+  }
+  .net {
+    animation: none;
   }
   body {
     transition: none;

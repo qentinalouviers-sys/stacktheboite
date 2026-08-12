@@ -333,8 +333,10 @@ existe : au-delà, ça devient strident.
 
 ## Hors ligne
 
-Le jeu est jouable hors ligne **dès le premier chargement**, y compris la page
-légale une fois visitée.
+Une partie ne touche jamais au réseau : le rendu, les textures, l'audio, les
+scores, les badges, les codes cadeau et l'image de partage sont tous produits
+sur l'appareil. Le jeu est donc jouable hors ligne **dès le premier
+chargement**, page légale comprise, sans avoir eu à la visiter.
 
 Deux stratégies dans `sw.js`, et le choix n'est pas cosmétique :
 
@@ -345,11 +347,36 @@ Deux stratégies dans `sw.js`, et le choix n'est pas cosmétique :
   une empreinte de version dans ces URL — une entrée en cache ne peut donc pas
   être périmée.
 
-Le point délicat : au tout premier chargement, les modules sont demandés
-**avant** que le worker soit actif, donc ils ne passent jamais par son `fetch`.
-La page lui envoie donc la liste de ce qu'elle vient réellement de charger, et
-il la met en cache. C'est ce qui évite d'attendre une deuxième visite — et ça
-évite au worker d'avoir à connaître les empreintes de version.
+Le worker porte la même empreinte de version que les URL. Il reconstruit donc
+seul la liste exacte de ce qu'il doit mettre en cache, et se remplit dès son
+installation sans rien attendre de la page.
+
+Quatre règles font la différence entre « ça marche hors ligne » et « ça marche
+hors ligne même quand ça se passe mal » :
+
+1. **L'installation est atomique.** `addAll` échoue en bloc : si un seul
+   fichier essentiel manque, l'installation entière est abandonnée et la
+   version précédente reste active avec son cache intact. On ne remplace
+   jamais une version qui marche par une version à trous.
+2. **La purge vient après.** Les anciens caches ne sont supprimés qu'à
+   l'activation, donc uniquement après une installation réussie.
+3. **Les trous se rebouchent.** Les navigateurs évincent des entrées sous la
+   pression du stockage, et l'installation ne rejoue pas tant que `sw.js` n'a
+   pas changé. À chaque chargement avec du réseau, la page demande au worker
+   de vérifier son cache et de récupérer ce qui manque.
+4. **L'échec se voit.** Si malgré tout un module manque et que le réseau est
+   coupé, la page afficherait un écran muet, qui passe pour un plantage.
+   Un minuteur posé dans `index.html` — désarmé par `main.js` dès qu'il
+   démarre — affiche alors un message et un bouton *Réessayer*.
+
+Une pastille en bas d'écran dit l'état : « JOUABLE HORS LIGNE » quand le cache
+vient d'être rempli, « HORS LIGNE — LE JEU CONTINUE » tant que la connexion
+manque. Sans elle, une coupure ressemble à une panne.
+
+La liste des modules est écrite en dur dans `sw.js`. Un fichier ajouté dans
+`src/` sans être ajouté à cette liste ferait échouer l'installation du cache,
+donc le workflow de déploiement compare les deux et refuse de publier en cas
+d'écart.
 
 Le cache est purgé à chaque changement de version, remplacée au déploiement par
 le sha du commit.
@@ -397,8 +424,16 @@ Non incluses dans le dépôt (jetables), mais validées sous Chromium en 390×84
 - audio : aucun oscillateur créé tant que le son est coupé, et la note du
   perfect monte bien d'un demi-ton exact par perfect consécutif
   (261,63 → 277,19 → 293,67 → 311,13 Hz) ;
-- hors ligne : après UN seul chargement en ligne, réseau coupé, la page se
-  recharge, le jeu tourne et `legal.html` répond.
+- hors ligne, serveur réellement éteint (et non `setOffline`, qui ne coupe pas
+  le loopback) : après UN seul chargement en ligne, la page se recharge à
+  froid, une partie se joue jusqu'à l'écran de fin, l'inscription aboutit et
+  `legal.html` sert bien les conditions et non le jeu ;
+- mise à jour interrompue : réseau coupé pendant l'installation d'une nouvelle
+  version, l'ancienne reste complète et jouable ; réseau revenu, la nouvelle
+  s'installe et purge l'ancienne ;
+- entrée évincée du cache : le message d'échec de démarrage s'affiche hors
+  ligne, et le fichier est récupéré tout seul au premier chargement avec du
+  réseau.
 
 ## À tester sur téléphone
 

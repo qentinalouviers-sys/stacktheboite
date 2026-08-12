@@ -48,6 +48,9 @@
     <span id="sound-hint" class="hint">Son coupé</span>
   </div>
 
+  <!-- Pastille réseau : sans elle, un joueur hors ligne croit l'appli cassée. -->
+  <div id="net" class="net hidden" role="status" aria-live="polite"></div>
+
   <div id="start" class="overlay">
     <p class="pulse">TAPEZ POUR EMPILER</p>
   </div>
@@ -153,7 +156,32 @@
     </div>
   </div>
 
+  <!-- Filet de sécurité : si un module manque au cache ET que le réseau est
+       coupé, la page s'afficherait sans jamais répondre au moindre tap. Un
+       écran muet passe pour un plantage. main.js désarme ce minuteur dès
+       qu'il a démarré, donc ce message ne peut apparaître qu'en cas de vrai
+       échec de chargement. -->
+  <div id="boot-error" class="overlay hidden">
+    <div class="card">
+      <p class="label">LE JEU N'A PAS PU DÉMARRER</p>
+      <p class="boot-text">
+        Il manque une pièce du jeu sur cet appareil. Reconnecte-toi une seule
+        fois : elle sera récupérée, et tu pourras rejouer hors ligne ensuite.
+      </p>
+      <button id="btn-retry" class="btn primary" type="button">Réessayer</button>
+    </div>
+  </div>
+
   <div id="debug"></div>
+
+  <script>
+    window.__bootWatchdog = setTimeout(function () {
+      document.getElementById('boot-error').classList.remove('hidden');
+    }, 8000);
+    document.getElementById('btn-retry').addEventListener('click', function () {
+      location.reload();
+    });
+  </script>
 
   <script type="module" src="src/main.js"></script>
 </body>

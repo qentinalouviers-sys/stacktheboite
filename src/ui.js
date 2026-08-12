@@ -17,6 +17,7 @@ const el = {
   endRecord: document.getElementById('end-record'),
   endStatus: document.getElementById('end-status'),
   debug: document.getElementById('debug'),
+  net: document.getElementById('net'),
   haptics: document.getElementById('haptics-toggle'),
   sound: document.getElementById('sound-toggle'),
   soundHint: document.getElementById('sound-hint'),
@@ -89,6 +90,42 @@ export function showStart() {
 
 export function setDebug(text) {
   if (el.debug) el.debug.textContent = text;
+}
+
+/* --- Pastille réseau ----------------------------------------- */
+
+// Deux registres se disputent la même pastille : un état durable (« tu es
+// hors ligne », affiché tant que ça dure) et un message fugace (« c'est bon,
+// tu peux couper »). Le fugace passe devant, puis rend la place à l'état.
+let netState = '';
+let netTimer = 0;
+
+function paintNet(text) {
+  if (!el.net) return;
+  el.net.textContent = text;
+  el.net.classList.toggle('hidden', !text);
+  // Rejoue l'animation d'entrée même si la pastille était déjà là.
+  if (text) {
+    el.net.classList.remove('net');
+    void el.net.offsetWidth;
+    el.net.classList.add('net');
+  }
+}
+
+/** État durable de la connexion. Chaîne vide = rien à signaler. */
+export function setNetworkState(text) {
+  netState = text || '';
+  if (!netTimer) paintNet(netState);
+}
+
+/** Message passager, qui laisse ensuite réapparaître l'état durable. */
+export function flashNetwork(text, ms = 3200) {
+  clearTimeout(netTimer);
+  paintNet(text);
+  netTimer = setTimeout(() => {
+    netTimer = 0;
+    paintNet(netState);
+  }, ms);
 }
 
 /**
